@@ -20,6 +20,15 @@ RUN apt update && apt install -y \
 
 RUN apt install -y clang-tidy clang-tools clang-format
 
+# Setup GitHub CLI repository
+RUN mkdir -p -m 755 /etc/apt/keyrings && \
+    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null && \
+    chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+
+# Clean update and install
+RUN apt-get update && apt-get install -y gh
+
 RUN curl -fsSL https://apt.kitware.com/keys/kitware-archive-latest.asc \
     -o /usr/share/keyrings/kitware-archive-keyring.asc && \
     echo "deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.asc] https://apt.kitware.com/ubuntu/ $(lsb_release -cs) main" \
