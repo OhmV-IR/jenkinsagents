@@ -18,6 +18,8 @@ RUN apt update && apt install -y \
     libx11-xcb-dev libxkbcommon-x11-dev libegl1-mesa-dev \
     python3.12 python3.12-venv lsb-release openjdk-21-jdk openjdk-25-jdk openjdk-17-jdk
 
+RUN apt install -y clang-tidy clang-tools clang-format
+
 RUN curl -fsSL https://apt.kitware.com/keys/kitware-archive-latest.asc \
     -o /usr/share/keyrings/kitware-archive-keyring.asc && \
     echo "deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.asc] https://apt.kitware.com/ubuntu/ $(lsb_release -cs) main" \
