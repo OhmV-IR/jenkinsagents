@@ -1,5 +1,5 @@
 pipeline {
-	agent { label 'linux' }
+	agent { label 'host' }
 	stages {
 		stage("Checkout"){
 			steps {
@@ -8,18 +8,18 @@ pipeline {
 		}
 		stage("Build linux image"){
 			steps {
-				sh "docker build -t linux-jenkins-agent:latest linux"
+				bat "docker build -t jenkins-agent-linux:latest linux"
 			}
 		}
 		stage("Save linux image to file"){
 			steps {
-				sh "docker save linux-jenkins-agent:latest -o linux-jenkins-agent.tar"
+				bat "docker save jenkins-agent-linux:latest -o jenkins-agent-linux.tar"
 			}
 		}
 		stage("Archive artifact"){
 			steps {
-				archiveArtifacts artifacts: 'linux-jenkins-agent.tar', fingerprint: true
-				sh "rm linux-jenkins-agent.tar"
+				archiveArtifacts artifacts: 'jenkins-agent-linux.tar', fingerprint: true
+				bat "del jenkins-agent-linux.tar"
 			}
 		}
 	}
