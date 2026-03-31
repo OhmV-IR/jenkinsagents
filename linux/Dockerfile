@@ -16,8 +16,9 @@ RUN apt update && apt install -y \
     libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
     libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
     libx11-xcb-dev libxkbcommon-x11-dev libegl1-mesa-dev \
-    python3.12 python3.12-venv lsb-release openjdk-21-jdk openjdk-25-jdk openjdk-17-jdk
-
+    python3.12 python3.12-venv lsb-release openjdk-21-jdk openjdk-25-jdk openjdk-17-jdk \ 
+    '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-dev libxi-dev libxkbcommon-dev \
+    libxkbcommon-x11-dev libegl1-mesa-dev
 RUN apt install -y clang-tidy clang-tools clang-format
 
 # Setup GitHub CLI repository
