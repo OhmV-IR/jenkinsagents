@@ -36,7 +36,8 @@ RUN curl -fsSL https://apt.kitware.com/keys/kitware-archive-latest.asc \
     > /etc/apt/sources.list.d/kitware.list && \
     apt-get update && apt-get install -y cmake
 
-RUN apt install -y libfuse2
+ENV APPIMAGE_EXTRACT_AND_RUN=1
+RUN apt install -y libfuse2 file binutils
 RUN curl -L -O https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
 RUN chmod +x linuxdeployqt-continuous-x86_64.AppImage
 RUN mv linuxdeployqt-continuous-x86_64.AppImage /usr/local/bin/linuxdeployqt
