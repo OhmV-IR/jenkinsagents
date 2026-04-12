@@ -1,25 +1,45 @@
 pipeline {
-	agent { label 'host' }
 	stages {
-		stage("Checkout"){
-			steps {
-				checkout scm
-			}
-		}
-		stage("Build linux image"){
-			steps {
-				bat "docker build -t jenkins-agent-linux:latest linux"
-			}
-		}
-		stage("Save linux image to file"){
-			steps {
-				bat "docker save jenkins-agent-linux:latest -o jenkins-agent-linux.tar"
-			}
-		}
-		stage("Archive artifact"){
-			steps {
-				archiveArtifacts artifacts: 'jenkins-agent-linux.tar', fingerprint: true
-				bat "del jenkins-agent-linux.tar"
+		stage("Build docker images"){
+			parallel {
+				stage("Build linux docker image"){
+					agent { label {'docker-linux'} }
+					steps {
+						checkout scm
+						script {
+							if(isUnix()){
+								bat "docker build -t jenkins-agent-linux:latest ."
+								bat "docker save jenkins-agent-linux:latest -o jenkins-agent-linux.tar"
+								archiveArtifacts artifacts: 'jenkins-agent-linux.tar', fingerprint: true
+								bat "del jenkins-agent-linux.tar"
+							} else {
+								sh "docker build -t jenkins-agent-linux:latest ."
+								sh "docker save jenkins-agent-linux:latest -o jenkins-agent-linux.tar"
+								archiveArtifacts artifacts: 'jenkins-agent-linux.tar', fingerprint: true
+								sh "rm jenkins-agent-linux.tar"
+							}
+						}
+					}
+				}
+				stage("Build windows docker image"){
+					agent { label {'docker-windows'} }
+					steps {
+						checkout scm
+						script {
+							if(isUnix()){
+								bat "docker build -t jenkins-agent-windows:latest ."
+								bat "docker save jenkins-agent-windows:latest -o jenkins-agent-windows.tar"
+								archiveArtifacts artifacts: 'jenkins-agent-windows.tar', fingerprint: true
+								bat "del jenkins-agent-windows.tar"
+							} else {
+								sh "docker build -t jenkins-agent-windows:latest ."
+								sh "docker save jenkins-agent-windows:latest -o jenkins-agent-windows.tar"
+								archiveArtifacts artifacts: 'jenkins-agent-windows.tar', fingerprint: true
+								sh "rm jenkins-agent-windows.tar"
+							}
+						}
+					}
+				}
 			}
 		}
 	}
