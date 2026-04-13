@@ -3,7 +3,7 @@ pipeline {
 		stage("Build docker images"){
 			parallel {
 				stage("Build linux docker image"){
-					agent { label {'docker-linux'} }
+					agent { label 'docker-linux' }
 					steps {
 						checkout scm
 						script {
@@ -22,7 +22,7 @@ pipeline {
 					}
 				}
 				stage("Build windows docker image"){
-					agent { label {'docker-windows'} }
+					agent { label 'docker-windows' }
 					steps {
 						checkout scm
 						script {
