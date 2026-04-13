@@ -21,8 +21,7 @@ RUN Write-Host 'Downloading VS 2026 Build Tools...'; \
     '--quiet', \
     '--wait', \
     '--norestart', \
-    '--nocache', \
-    '--installPath', 'C:\MSVC', \
+    '--nocache', 
     '--config', 'C:\TEMP\.vsconfig' \
 ) -Wait; \
     Write-Host 'Cleaning up installer...'; \
@@ -41,12 +40,8 @@ ENV JENKINS_URL="" \
     AGENT_WORKDIR="C:\Users\jenkins"
 
 # Add MSVC to Path
-#RUN $v = Get-ChildItem "C:\MSVC\VC\Tools\MSVC" | Sort-Object Name -Descending | Select-Object -First 1; \
-#    $newPath = "C:\MSVC\VC\Tools\MSVC\$($v.Name)\bin\Hostx64\x64;" + $env:PATH; \
-#    setx PATH "$newPath"
 RUN $env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine'); \
     setx /M PATH $env:Path
-
 
 USER jenkins
 WORKDIR C:\\Users\\jenkins
