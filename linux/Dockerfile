@@ -2,10 +2,21 @@ FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt update && apt install -y \
-    git ca-certificates openssh-client build-essential ninja-build curl openjdk-21-jre fontconfig \
+# Install docker build tools
+RUN apt update
+RUN apt install -y ca-certificates curl gnupg lsb-release openjdk-17-jre-headless git sudo
+RUN install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
+    chmod a+r /etc/apt/keyrings/docker.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+RUN apt update && apt install -y docker-ce docker-ce-cli containerd.io
+
+# Install compilers, vcpkg dependencies, and other tools
+RUN apt install -y \
+    openssh-client build-essential ninja-build openjdk-21-jre fontconfig \
     zip unzip tar autoconf autoconf-archive automake libtool \
-    linux-libc-dev pkg-config software-properties-common lsb-release \
+    linux-libc-dev pkg-config software-properties-common \
     nasm bison flex python3 python3.12-venv \
     libx11-dev libxext-dev libxrender-dev libxtst-dev libxrandr-dev \
     libltdl-dev libxi-dev libxcursor-dev libxinerama-dev \
@@ -16,7 +27,7 @@ RUN apt update && apt install -y \
     libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
     libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
     libx11-xcb-dev libxkbcommon-x11-dev libegl1-mesa-dev \
-    python3.12 python3.12-venv lsb-release openjdk-21-jdk openjdk-25-jdk openjdk-17-jdk \ 
+    python3.12 python3.12-venv openjdk-21-jdk openjdk-25-jdk openjdk-17-jdk \ 
     '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-dev libxi-dev libxkbcommon-dev \
     libxkbcommon-x11-dev libegl1-mesa-dev
 RUN apt install -y clang-tidy clang-tools clang-format
@@ -54,5 +65,5 @@ ENV AGENT_WORKDIR="/home/jenkins"
 USER jenkins
 WORKDIR /home/jenkins/workspace
 
-ENTRYPOINT ["/bin/bash", "-c", "curl -sO ${JENKINS_URL}/jnlpJars/agent.jar && java -jar agent.jar -url ${JENKINS_URL} -secret ${AGENT_SECRET} -name \"${AGENT_NAME}\" -webSocket -workDir \"${AGENT_WORKDIR}\""]
+ENTRYPOINT ["/bin/bash", "-c", "service docker start && sleep 5 && curl -sO ${JENKINS_URL}/jnlpJars/agent.jar && java -jar agent.jar -url ${JENKINS_URL} -secret ${AGENT_SECRET} -name \"${AGENT_NAME}\" -webSocket -workDir \"${AGENT_WORKDIR}\""]
 

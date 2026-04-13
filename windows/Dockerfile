@@ -12,18 +12,18 @@ RUN Set-ExecutionPolicy Bypass -Scope Process -Force; \
 RUN choco install -y git cmake ninja curl openjdk17 make python312
 
 # 3. Install VS 2026 Build Tools
-RUN mkdir C:\TEMP; \
-    Write-Host 'Downloading VS 2026 Build Tools...'; \
+RUN mkdir C:\TEMP
+COPY .vsconfig C:/TEMP/.vsconfig
+RUN Write-Host 'Downloading VS 2026 Build Tools...'; \
     Invoke-WebRequest -Uri https://aka.ms/vs/18/Stable/vs_buildtools.exe -OutFile C:\TEMP\vs_buildtools.exe; \
     Write-Host 'Installing MSVC Components...'; \
     Start-Process 'C:\TEMP\vs_buildtools.exe' -ArgumentList @( \
     '--quiet', \
     '--wait', \
     '--norestart', \
-    '--wnocache', \
+    '--nocache', \
     '--installPath', 'C:\MSVC', \
-    '--add', 'Microsoft.VisualStudio.Workload.VCTools', \
-    '--includeRecommended' \
+    '--config', 'C:\TEMP\.vsconfig' \
 ) -Wait; \
     Write-Host 'Cleaning up installer...'; \
     Remove-Item -Path C:\TEMP -Recurse -Force
