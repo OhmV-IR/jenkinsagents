@@ -12,25 +12,27 @@ RUN Set-ExecutionPolicy Bypass -Scope Process -Force; \
 RUN choco install -y git cmake ninja curl openjdk17 make python312
 
 # 3. Install VS 2026 Build Tools
-# Using RUN instead of ADD to keep the image slim and avoid 'Directory Name Invalid' errors
 RUN mkdir C:\TEMP; \
     Write-Host 'Downloading VS 2026 Build Tools...'; \
-    Invoke-WebRequest -Uri https://aka.ms/vs/17/release/vs_BuildTools.exe -OutFile C:\TEMP\vs_buildtools.exe; \
+    Invoke-WebRequest -Uri https://aka.ms/vs/18/Stable/vs_buildtools.exe -OutFile C:\TEMP\vs_buildtools.exe; \
     Write-Host 'Installing MSVC Components...'; \
-    Start-Process -FilePath 'C:\TEMP\vs_buildtools.exe' -ArgumentList \
-        '--quiet', '--wait', '--norestart', '--nocache', \
-        '--installPath C:\MSVC', \
-        '--add Microsoft.VisualStudio.Workload.VCTools', \
-        '--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64', \
-        '--add Microsoft.VisualStudio.Component.Windows11SDK.26100' \
-        -Wait; \
+    Start-Process 'C:\TEMP\vs_buildtools.exe' -ArgumentList @( \
+    '--quiet', \
+    '--wait', \
+    '--norestart', \
+    '--wnocache', \
+    '--installPath', 'C:\MSVC', \
+    '--add', 'Microsoft.VisualStudio.Workload.VCTools', \
+    '--includeRecommended' \
+) -Wait; \
     Write-Host 'Cleaning up installer...'; \
     Remove-Item -Path C:\TEMP -Recurse -Force
 
 # 4. Setup Jenkins User
-RUN net user jenkins /add; \
+RUN net user jenkins /add /passwordreq:no; \
     net localgroup Administrators jenkins /add; \
-    New-Item -ItemType Directory -Path C:\Users\jenkins -Force
+    New-Item -ItemType Directory -Path C:\Users\jenkins -Force; \
+    icacls C:\\Users\\jenkins /grant 'jenkins:(OI)(CI)F' /T
 
 # 5. Environment Configuration
 ENV JENKINS_URL="" \
@@ -38,14 +40,20 @@ ENV JENKINS_URL="" \
     AGENT_SECRET="" \
     AGENT_WORKDIR="C:\Users\jenkins"
 
-# Add MSVC to Path so CMake finds it automatically
-# Note: Check the exact version folder after your first build and update this path if needed
-ENV PATH="C:\MSVC\VC\Tools\MSVC\14.40.33810\bin\Hostx64\x64;${PATH}"
+# Add MSVC to Path
+#RUN $v = Get-ChildItem "C:\MSVC\VC\Tools\MSVC" | Sort-Object Name -Descending | Select-Object -First 1; \
+#    $newPath = "C:\MSVC\VC\Tools\MSVC\$($v.Name)\bin\Hostx64\x64;" + $env:PATH; \
+#    setx PATH "$newPath"
+RUN $env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine'); \
+    setx /M PATH $env:Path
+
 
 USER jenkins
-WORKDIR C:\Users\jenkins
+WORKDIR C:\\Users\\jenkins
 
-# 6. Entrypoint with improved connection logic
 ENTRYPOINT ["powershell", "-NoLogo", "-Command", \
-    "Invoke-WebRequest -Uri \"$env:JENKINS_URL/jnlpJars/agent.jar\" -OutFile agent.jar; \
+    "$ErrorActionPreference = 'Stop'; \
+    Write-Host 'Fetching agent.jar from' $env:JENKINS_URL; \
+    Invoke-WebRequest -UseBasicParsing -Uri \"$($env:JENKINS_URL)/jnlpJars/agent.jar\" -OutFile 'agent.jar'; \
+    Write-Host 'Starting Jenkins Agent...'; \
     java -jar agent.jar -url $env:JENKINS_URL -secret $env:AGENT_SECRET -name $env:AGENT_NAME -webSocket -workDir $env:AGENT_WORKDIR"]
