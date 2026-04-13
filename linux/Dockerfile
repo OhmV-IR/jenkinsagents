@@ -33,14 +33,13 @@ RUN apt install -y \
 RUN apt install -y clang-tidy clang-tools clang-format
 
 # Install dotnet SDKs
+ENV DOTNET_ROOT=/opt/dotnet
+ENV PATH="${PATH}:${DOTNET_ROOT}:${DOTNET_ROOT}/tools"
 RUN curl -L -O https://dot.net/v1/dotnet-install.sh
 RUN chmod +x dotnet-install.sh
-RUN ./dotnet-install.sh --channel 8.0
-RUN ./dotnet-install.sh --channel 9.0
-RUN ./dotnet-install.sh --channel 10.0
-RUN echo 'export DOTNET_ROOT=$HOME/.dotnet' >> ~/.bashrc
-RUN echo 'export PATH=$PATH:$HOME/.dotnet:$HOME/.dotnet/tools' >> ~/.bashrc
-RUN source ~/.bashrc
+RUN ./dotnet-install.sh --install-dir $DOTNET_ROOT --channel 8.0
+RUN ./dotnet-install.sh --install-dir $DOTNET_ROOT --channel 9.0
+RUN ./dotnet-install.sh --install-dir $DOTNET_ROOT --channel 10.0
 
 # Setup GitHub CLI repository
 RUN mkdir -p -m 755 /etc/apt/keyrings && \
@@ -66,7 +65,6 @@ RUN mv linuxdeployqt-continuous-x86_64.AppImage /usr/local/bin/linuxdeployqt
 RUN useradd -m -d /home/jenkins -s /bin/bash jenkins && \
     mkdir -p /home/jenkins/workspace && \
     chown -R jenkins:jenkins /home/jenkins
-RUN cp /home/root/.bashrc /home/jenkins/.bashrc
 
 ENV JENKINS_URL=""
 ENV AGENT_NAME=""
