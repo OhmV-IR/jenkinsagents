@@ -33,7 +33,7 @@ RUN apt install -y \
 RUN apt install -y clang-tidy clang-tools clang-format
 
 # Install dotnet SDKs
-RUN wget https://dot.net/v1/dotnet-install.sh -O dotnet-install.sh
+RUN curl -L -O https://dot.net/v1/dotnet-install.sh
 RUN chmod +x dotnet-install.sh
 RUN ./dotnet-install.sh --channel 8.0
 RUN ./dotnet-install.sh --channel 9.0
