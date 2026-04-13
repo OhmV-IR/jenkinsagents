@@ -21,7 +21,7 @@ RUN Write-Host 'Downloading VS 2026 Build Tools...'; \
     '--quiet', \
     '--wait', \
     '--norestart', \
-    '--nocache', 
+    '--nocache', \
     '--config', 'C:\TEMP\.vsconfig' \
 ) -Wait; \
     Write-Host 'Cleaning up installer...'; \
