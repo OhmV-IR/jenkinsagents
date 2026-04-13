@@ -8,7 +8,7 @@ pipeline {
 					steps {
 						checkout scm
 						script {
-							if(isUnix()){
+							if(!isUnix()){
 								bat "docker build -t jenkins-agent-linux:latest ."
 								bat "docker save jenkins-agent-linux:latest -o jenkins-agent-linux.tar"
 								archiveArtifacts artifacts: 'jenkins-agent-linux.tar', fingerprint: true
@@ -27,7 +27,7 @@ pipeline {
 					steps {
 						checkout scm
 						script {
-							if(isUnix()){
+							if(!isUnix()){
 								bat "docker build -t jenkins-agent-windows:latest ."
 								bat "docker save jenkins-agent-windows:latest -o jenkins-agent-windows.tar"
 								archiveArtifacts artifacts: 'jenkins-agent-windows.tar', fingerprint: true
