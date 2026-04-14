@@ -27,12 +27,8 @@ pipeline {
 						script {
 							if(!isUnix()){
 								bat "docker build -t jenkins-agent-windows:latest -f windows/Dockerfile windows"
-								bat "docker tag jenkins-agent-windows:latest registry.bgfamily.ca/jenkins-agent-windows:latest"
-								bat "docker push registry.bgfamily.ca/jenkins-agent-windows:latest"
 							} else {
 								sh "docker build -t jenkins-agent-windows:latest -f windows/Dockerfile windows"
-								sh "docker tag jenkins-agent-windows:latest registry.bgfamily.ca/jenkins-agent-windows:latest"
-								sh "docker push registry.bgfamily.ca/jenkins-agent-windows:latest"
 							}
 						}
 					}
