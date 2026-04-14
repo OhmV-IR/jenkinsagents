@@ -66,6 +66,9 @@ RUN useradd -m -d /home/jenkins -s /bin/bash jenkins && \
     mkdir -p /home/jenkins/workspace && \
     chown -R jenkins:jenkins /home/jenkins
 
+RUN usermod -aG docker jenkins
+RUN echo "jenkins ALL=(ALL) NOPASSWD:ALL" | tee /etc/sudoers.d/jenkins
+
 ENV JENKINS_URL=""
 ENV AGENT_NAME=""
 ENV AGENT_SECRET=""
@@ -74,5 +77,5 @@ ENV AGENT_WORKDIR="/home/jenkins"
 USER jenkins
 WORKDIR /home/jenkins/workspace
 
-ENTRYPOINT ["/bin/bash", "-c", "service docker start && sleep 5 && curl -sO ${JENKINS_URL}/jnlpJars/agent.jar && java -jar agent.jar -url ${JENKINS_URL} -secret ${AGENT_SECRET} -name \"${AGENT_NAME}\" -webSocket -workDir \"${AGENT_WORKDIR}\""]
+ENTRYPOINT ["/bin/bash", "-c", "sudo service docker start && sleep 5 && curl -sO ${JENKINS_URL}/jnlpJars/agent.jar && java -jar agent.jar -url ${JENKINS_URL} -secret ${AGENT_SECRET} -name \"${AGENT_NAME}\" -webSocket -workDir \"${AGENT_WORKDIR}\""]
 

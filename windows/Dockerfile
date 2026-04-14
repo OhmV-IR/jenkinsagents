@@ -40,8 +40,20 @@ ENV JENKINS_URL="" \
     AGENT_WORKDIR="C:\Users\jenkins"
 
 # Add MSVC to Path
-RUN $env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine'); \
-    setx /M PATH $env:Path
+RUN $installPath = 'C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools'; \
+    $msvcRoot = Join-Path $installPath 'VC\Tools\MSVC'; \
+    $msvcVer = (Get-ChildItem $msvcRoot | Select-Object -ExpandProperty Name -First 1); \
+    $compilerPath = Join-Path $msvcRoot $msvcVer | Join-Path -ChildPath 'bin\Hostx64\x64'; \
+    $msbuildPath = Join-Path $installPath 'MSBuild\Current\Bin'; \
+    $sdkRoot = 'C:\Program Files (x86)\Windows Kits\10\bin'; \
+    $sdkVer = (Get-ChildItem $sdkRoot | Where-Object { $_.Name -like '10.*' } | Select-Object -ExpandProperty Name -First 1); \
+    $sdkPath = Join-Path $sdkRoot $sdkVer | Join-Path -ChildPath 'x64'; \
+    $oldPath = [Environment]::GetEnvironmentVariable('Path', 'Machine'); \
+    $newPaths = @($compilerPath, $msbuildPath, $sdkPath) | Where-Object { $oldPath -notlike ('*' + $_ + '*') }; \
+    if ($newPaths) { \
+        $finalPath = $oldPath + ';' + ($newPaths -join ';'); \
+        [Environment]::SetEnvironmentVariable('Path', $finalPath, 'Machine'); \
+    }
 
 USER jenkins
 WORKDIR C:\\Users\\jenkins
