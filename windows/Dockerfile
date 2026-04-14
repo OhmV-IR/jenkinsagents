@@ -55,6 +55,9 @@ RUN $installPath = 'C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools
         [Environment]::SetEnvironmentVariable('Path', $finalPath, 'Machine'); \
     }
 
+ADD https://aka.ms/vs/18/release/vc_redist.x64.exe C:\\vc_redist.exe
+RUN C:\\vc_redist.exe /quiet /install
+
 USER jenkins
 WORKDIR C:\\Users\\jenkins
 
