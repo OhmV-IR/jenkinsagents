@@ -62,6 +62,13 @@ RUN curl -L -O https://github.com/probonopd/linuxdeployqt/releases/download/cont
 RUN chmod +x linuxdeployqt-continuous-x86_64.AppImage
 RUN mv linuxdeployqt-continuous-x86_64.AppImage /usr/local/bin/linuxdeployqt
 
+RUN echo "Beginning prebake of some heavy vcpkg dependencies from a few projects"
+RUN echo "Building pragmabackend dependencies"
+RUN git clone https://github.com/SpectreRevival/pragmabackend && cd pragmabackend && git submodule update --init --recursive && cmake . --preset x64-debug-linux && cd .. && rm -rf pragmabackend
+RUN echo "Building spectrelauncher dependencies"
+RUN git clone https://github.com/SpectreRevival/spectrelauncher && cd spectrelauncher && git submodule update --init --recursive && cmake . --preset x64-debug-linux && cd .. && rm -rf spectrelauncher
+RUN echo "Finishing building dependencies, now finishing by setting up user..."
+
 RUN useradd -m -d /home/jenkins -s /bin/bash jenkins && \
     mkdir -p /home/jenkins/workspace && \
     chown -R jenkins:jenkins /home/jenkins

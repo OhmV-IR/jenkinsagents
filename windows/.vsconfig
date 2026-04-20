@@ -1,21 +1,18 @@
 {
-	  "version": "1.0",
-	    "components": [
-		        "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
-			    "Microsoft.VisualStudio.Component.Windows11SDK.26100",
-			        "Microsoft.VisualStudio.Component.VC.CMake.Project",
-				    "Microsoft.VisualStudio.Component.VC.ASAN",
-				        "Microsoft.VisualStudio.Component.VC.ATL",
-					    "Microsoft.VisualStudio.Component.VC.v141.x86.x64",
-					        "Microsoft.VisualStudio.Component.NuGet.BuildTools",
-						    "Microsoft.VisualStudio.Component.Roslyn.Compiler",
-						        "Microsoft.NetCore.Component.SDK",
-							    
-							    /* ARM & ARM64 Specific Components */
-							        "Microsoft.VisualStudio.Component.VC.Tools.ARM64",
-								    "Microsoft.VisualStudio.Component.VC.Tools.ARM64EC",
-								        "Microsoft.VisualStudio.Component.VC.Runtimes.ARM64.Spectre",
-									    "Microsoft.VisualStudio.Component.VC.ATL.ARM64",
-									        "Microsoft.VisualStudio.Component.VC.MFC.ARM64"
-										  ]
+  "version": "1.0",
+  "components": [
+    "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+    "Microsoft.VisualStudio.Component.Windows11SDK.26100",
+    "Microsoft.VisualStudio.Component.VC.CMake.Project",
+    "Microsoft.VisualStudio.Component.VC.ASAN",
+    "Microsoft.VisualStudio.Component.VC.ATL",
+    "Microsoft.VisualStudio.Component.NuGet.BuildTools",
+    "Microsoft.VisualStudio.Component.Roslyn.Compiler",
+    "Microsoft.NetCore.Component.SDK",
+    "Microsoft.VisualStudio.Component.VC.Tools.ARM64",
+    "Microsoft.VisualStudio.Component.VC.Tools.ARM64EC",
+    "Microsoft.VisualStudio.Component.VC.Runtimes.ARM64.Spectre",
+    "Microsoft.VisualStudio.Component.VC.ATL.ARM64",
+    "Microsoft.VisualStudio.Component.VC.MFC.ARM64"
+  ]
 }

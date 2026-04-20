@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/windows/servercore:ltsc2022
+FROM mcr.microsoft.com/windows/server:ltsc2025
 
 # Set Shell to PowerShell for all subsequent RUN commands
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
@@ -14,19 +14,28 @@ RUN choco install -y git cmake ninja curl openjdk17 make python312
 # 3. Install VS 2026 Build Tools
 RUN mkdir C:\TEMP
 COPY .vsconfig C:/TEMP/.vsconfig
-RUN Write-Host 'Downloading VS 2026 Build Tools...'; \
-    Invoke-WebRequest -Uri https://aka.ms/vs/18/Stable/vs_buildtools.exe -OutFile C:\TEMP\vs_buildtools.exe; \
-    Write-Host 'Installing MSVC Components...'; \
-    Start-Process 'C:\TEMP\vs_buildtools.exe' -ArgumentList @( \
-    '--quiet', \
-    '--wait', \
-    '--norestart', \
-    '--nocache', \
-    '--config', 'C:\TEMP\.vsconfig' \
-) -Wait; \
-    Write-Host 'Cleaning up installer...'; \
-    Remove-Item -Path C:\TEMP -Recurse -Force
 
+SHELL ["cmd", "/S", "/C"]
+RUN curl -SL --output C:\TEMP\vs_buildtools.exe https://aka.ms/vs/stable/vs_buildtools.exe ^ \
+    && C:\TEMP\vs_buildtools.exe ^ \
+        --quiet ^ \
+        --wait ^ \
+        --norestart ^ \
+        --nocache ^ \
+        --installPath "C:\BuildTools" ^ \
+        --config "C:\TEMP\.vsconfig" ^ \
+        --remove Microsoft.VisualStudio.Component.Windows10SDK.10240 ^ \
+        --remove Microsoft.VisualStudio.Component.Windows10SDK.10586 ^ \
+        --remove Microsoft.VisualStudio.Component.Windows10SDK.14393 ^ \
+        --remove Microsoft.VisualStudio.Component.Windows81SDK ^ \
+    && del C:\TEMP\vs_buildtools.exe
+RUN reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\rc.exe" /v MitigationOptions /t REG_QWORD /d 2 /f
+# Verify build tools installation
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
+RUN if (-not (Test-Path 'C:\BuildTools')) { throw 'Build Tools installation failed' }
+
+RUN git clone https://github.com/SpectreRevival/pragmabackend; cd pragmbackend; git submodule update --init --recursive; cmake . --preset x64-debug-win; cd ..; Remove-Item -Path pragmabackend -Recurse -Force
+RUN git clone https://github.com/SpectreRevival/spectrelauncher; cd spectrelauncher; git submodule update --init --recursive; cmake . --preset x64-debug-win; cd ..; Remove-Item -Path spectrelauncher -Recurse -Force
 # 4. Setup Jenkins User
 RUN net user jenkins /add /passwordreq:no; \
     net localgroup Administrators jenkins /add; \
@@ -38,25 +47,6 @@ ENV JENKINS_URL="" \
     AGENT_NAME="" \
     AGENT_SECRET="" \
     AGENT_WORKDIR="C:\Users\jenkins"
-
-# Add MSVC to Path
-RUN $installPath = 'C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools'; \
-    $msvcRoot = Join-Path $installPath 'VC\Tools\MSVC'; \
-    $msvcVer = (Get-ChildItem $msvcRoot | Select-Object -ExpandProperty Name -First 1); \
-    $compilerPath = Join-Path $msvcRoot $msvcVer | Join-Path -ChildPath 'bin\Hostx64\x64'; \
-    $msbuildPath = Join-Path $installPath 'MSBuild\Current\Bin'; \
-    $sdkRoot = 'C:\Program Files (x86)\Windows Kits\10\bin'; \
-    $sdkVer = (Get-ChildItem $sdkRoot | Where-Object { $_.Name -like '10.*' } | Select-Object -ExpandProperty Name -First 1); \
-    $sdkPath = Join-Path $sdkRoot $sdkVer | Join-Path -ChildPath 'x64'; \
-    $oldPath = [Environment]::GetEnvironmentVariable('Path', 'Machine'); \
-    $newPaths = @($compilerPath, $msbuildPath, $sdkPath) | Where-Object { $oldPath -notlike ('*' + $_ + '*') }; \
-    if ($newPaths) { \
-        $finalPath = $oldPath + ';' + ($newPaths -join ';'); \
-        [Environment]::SetEnvironmentVariable('Path', $finalPath, 'Machine'); \
-    }
-
-ADD https://aka.ms/vs/18/release/vc_redist.x64.exe C:\\vc_redist.exe
-RUN C:\\vc_redist.exe /quiet /install
 
 USER jenkins
 WORKDIR C:\\Users\\jenkins
