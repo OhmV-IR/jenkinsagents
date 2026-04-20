@@ -34,7 +34,7 @@ RUN reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execut
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
 RUN if (-not (Test-Path 'C:\BuildTools')) { throw 'Build Tools installation failed' }
 
-RUN git clone https://github.com/SpectreRevival/pragmabackend; cd pragmbackend; git submodule update --init --recursive; cmake . --preset x64-debug-win; cd ..; Remove-Item -Path pragmabackend -Recurse -Force
+RUN git clone https://github.com/SpectreRevival/pragmabackend; cd pragmabackend; git submodule update --init --recursive; cmake . --preset x64-debug-win; cd ..; Remove-Item -Path pragmabackend -Recurse -Force
 RUN git clone https://github.com/SpectreRevival/spectrelauncher; cd spectrelauncher; git submodule update --init --recursive; cmake . --preset x64-debug-win; cd ..; Remove-Item -Path spectrelauncher -Recurse -Force
 # 4. Setup Jenkins User
 RUN net user jenkins /add /passwordreq:no; \
