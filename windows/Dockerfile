@@ -34,8 +34,8 @@ RUN reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execut
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
 RUN if (-not (Test-Path 'C:\BuildTools')) { throw 'Build Tools installation failed' }
 
-RUN git clone https://github.com/SpectreRevival/pragmabackend; cd pragmabackend; git submodule update --init --recursive; cmake . --preset x64-debug-win; cd ..; Remove-Item -Path pragmabackend -Recurse -Force
-RUN git clone https://github.com/SpectreRevival/spectrelauncher; cd spectrelauncher; git submodule update --init --recursive; cmake . --preset x64-debug-win; cd ..; Remove-Item -Path spectrelauncher -Recurse -Force
+RUN git clone https://github.com/SpectreRevival/pragmabackend; cd pragmabackend; git submodule update --init --recursive; cmake . --preset x64-debug-win; cd ..; Remove-Item -Path pragmabackend -Recurse -Force; Remove-Item -Path C:\\b -Recurse -Force; Remove-Item -Path C:\\p -Recurse -Force; Remove-Item -Path C:\\d -Recurse -Force
+RUN git clone https://github.com/SpectreRevival/spectrelauncher; cd spectrelauncher; git submodule update --init --recursive; cmake . --preset x64-debug-win; cd ..; Remove-Item -Path spectrelauncher -Recurse -Force; Remove-Item -Path C:\\b -Recurse -Force; Remove-Item -Path C:\\p -Recurse -Force; Remove-Item -Path C:\\d -Recurse -Force
 # 4. Setup Jenkins User
 RUN net user jenkins /add /passwordreq:no; \
     net localgroup Administrators jenkins /add; \
@@ -43,7 +43,7 @@ RUN net user jenkins /add /passwordreq:no; \
     icacls C:\\Users\\jenkins /grant 'jenkins:(OI)(CI)F' /T
 
 # 5. Environment Configuration
-ENV JENKINS_URL="" \
+ENV JENKINS_URL="" 
     AGENT_NAME="" \
     AGENT_SECRET="" \
     AGENT_WORKDIR="C:\Users\jenkins"
