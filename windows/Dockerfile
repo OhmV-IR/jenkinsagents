@@ -43,7 +43,7 @@ RUN net user jenkins /add /passwordreq:no; \
     icacls C:\\Users\\jenkins /grant 'jenkins:(OI)(CI)F' /T
 
 # 5. Environment Configuration
-ENV JENKINS_URL="" 
+ENV JENKINS_URL="" \ 
     AGENT_NAME="" \
     AGENT_SECRET="" \
     AGENT_WORKDIR="C:\Users\jenkins"
