@@ -34,7 +34,6 @@ RUN reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execut
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
 RUN if (-not (Test-Path 'C:\BuildTools')) { throw 'Build Tools installation failed' }
 
-ENV PATH="C:\BuildTools\VC\Tools\MSVC\14.50.35717\bin\HostX64\x64;C:\BuildTools\MSBuild\Current\bin\Roslyn;C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\\x64;C:\Program Files (x86)\Windows Kits\10\bin\\x64;C:\BuildTools\\MSBuild\Current\Bin\amd64;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\BuildTools\Common7\IDE\;C:\BuildTools\Common7\Tools\;C:\BuildTools\VC\Tools\MSVC\14.50.35717\bin\HostX64\x64;C:\BuildTools\MSBuild\Current\bin\Roslyn;C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64;C:\Program Files (x86)\Windows Kits\10\bin\x64;C:\BuildTools\MSBuild\Current\Bin\amd64;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\BuildTools\Common7\IDE\;C:\BuildTools\Common7\Tools\;C:\Python312\Scripts\;C:\Python312\;C:\Program Files\Eclipse Adoptium\jdk-17.0.17.10-hotspot\bin;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Windows\System32\OpenSSH\;C:\ProgramData\chocolatey\bin;C:\Program Files\Git\cmd;C:\Program Files\CMake\bin;C:\Program Files\dotnet\;C:\Users\jenkins.6EB46AF8FA13\AppData\Local\Microsoft\WindowsApps;C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin;C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin;C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja"
 # 4. Setup Jenkins User
 RUN net user jenkins /add /passwordreq:no; \
     net localgroup Administrators jenkins /add; \
@@ -49,6 +48,13 @@ ENV JENKINS_URL="" \
 
 USER jenkins
 WORKDIR C:\\Users\\jenkins
+
+RUN Set-Content -Path C:\shell.bat -Value '@echo off'; ` \
+    Add-Content -Path C:\shell.bat -Value 'call "C:\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" x64 && %*';
+SHELL ["C:\\shell.bat", "cmd", "/S", "/C"]
+RUN git clone https://github.com/SpectreRevival/pragmabackend && cd pragmabackend && git submodule update --init --recursive && cmake . --preset x64-debug-win && cd .. && rmdir /s /q pragmabackend && if exist C:\\b rmdir /s /q C:\\b && if exist C:\\d rmdir /s /q C:\\d && if exist C:\\p rmdir /s /q C:\\p
+RUN git clone https://github.com/SpectreRevival/spectrelauncher && cd spectrelauncher && git submodule update --init --recursive && cmake . --preset x64-debug-win && cd .. && rmdir /s /q spectrelauncher && if exist C:\\b rmdir /s /q C:\\b && if exist C:\\d rmdir /s /q C:\\d && if exist C:\\p rmdir /s /q C:\\p
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
 
 ENTRYPOINT ["powershell", "-NoLogo", "-Command", \
     "$ErrorActionPreference = 'Stop'; \
