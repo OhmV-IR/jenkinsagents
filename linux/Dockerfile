@@ -60,7 +60,6 @@ RUN useradd -m -d /home/jenkins -s /bin/bash jenkins && \
     mkdir -p /home/jenkins/workspace && \
     chown -R jenkins:jenkins /home/jenkins
 
-RUN usermod -aG docker jenkins
 RUN echo "jenkins ALL=(ALL) NOPASSWD:ALL" | tee /etc/sudoers.d/jenkins
 
 ENV JENKINS_URL=""
