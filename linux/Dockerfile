@@ -5,12 +5,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install docker build tools
 RUN apt update
 RUN apt install -y ca-certificates curl gnupg lsb-release openjdk-17-jre-headless git sudo
-RUN install -m 0755 -d /etc/apt/keyrings && \
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
-    chmod a+r /etc/apt/keyrings/docker.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-RUN apt update && apt install -y docker-ce docker-ce-cli containerd.io
 
 # Install compilers, vcpkg dependencies, and other tools
 RUN apt install -y \
@@ -84,5 +78,5 @@ RUN echo "Building spectrelauncher dependencies"
 RUN git clone https://github.com/SpectreRevival/spectrelauncher && cd spectrelauncher && git submodule update --init --recursive && cmake . --preset x64-debug-linux && cd .. && rm -rf spectrelauncher
 RUN echo "Finishing building dependencies, now finishing by setting up user..."
 
-ENTRYPOINT ["/bin/bash", "-c", "sudo service docker start && sleep 5 && curl -sO ${JENKINS_URL}/jnlpJars/agent.jar && java -jar agent.jar -url ${JENKINS_URL} -secret ${AGENT_SECRET} -name \"${AGENT_NAME}\" -webSocket -workDir \"${AGENT_WORKDIR}\""]
+ENTRYPOINT ["/bin/bash", "-c", "curl -sO ${JENKINS_URL}/jnlpJars/agent.jar && java -jar agent.jar -url ${JENKINS_URL} -secret ${AGENT_SECRET} -name \"${AGENT_NAME}\" -webSocket -workDir \"${AGENT_WORKDIR}\""]
 
