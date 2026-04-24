@@ -77,5 +77,12 @@ RUN echo "Building spectrelauncher dependencies"
 RUN git clone https://github.com/SpectreRevival/spectrelauncher && cd spectrelauncher && git submodule update --init --recursive && cmake . --preset x64-debug-linux && cd .. && rm -rf spectrelauncher
 RUN echo "Finishing building dependencies, now finishing by setting up user..."
 
-ENTRYPOINT ["/bin/bash", "-c", "curl -sO ${JENKINS_URL}/jnlpJars/agent.jar && java -jar agent.jar -url ${JENKINS_URL} -secret ${AGENT_SECRET} -name \"${AGENT_NAME}\" -webSocket -workDir \"${AGENT_WORKDIR}\""]
-
+# We use the shell form (no brackets) so ${VARIABLES} are expanded correctly.
+# Removed -s (silent) so you can see the download progress and any errors.
+ENTRYPOINT curl -O ${JENKINS_URL}/jnlpJars/agent.jar && \
+           java -jar agent.jar \
+           -url ${JENKINS_URL} \
+           -secret ${AGENT_SECRET} \
+           -name "${AGENT_NAME}" \
+           -webSocket \
+           -workDir "${AGENT_WORKDIR}"
