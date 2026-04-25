@@ -9,7 +9,7 @@ RUN Set-ExecutionPolicy Bypass -Scope Process -Force; \
     iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 
 # 2. Install basic build dependencies
-RUN choco install -y git cmake ninja curl openjdk17 make python312
+RUN choco install -y git cmake ninja curl openjdk25 make python312
 
 # 3. Install VS 2026 Build Tools
 RUN mkdir C:\TEMP
