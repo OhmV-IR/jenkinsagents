@@ -72,7 +72,7 @@ WORKDIR /home/jenkins/workspace
 
 RUN echo "Beginning prebake of some heavy vcpkg dependencies from a few projects"
 RUN echo "Building pragmabackend dependencies"
-RUN git clone https://github.com/SpectreRevival/pragmabackend && cd pragmabackend && git submodule update --init --recursive && cmake . --preset x64-debug-linux && cd .. && rm -rf pragmabackend
+RUN git clone https://github.com/SpectreRevival/pragmabackend && cd pragmabackend && git checkout add-friends-system && git submodule update --init --recursive && cmake . --preset x64-debug-linux && cd .. && rm -rf pragmabackend
 RUN echo "Building spectrelauncher dependencies"
 RUN git clone https://github.com/SpectreRevival/spectrelauncher && cd spectrelauncher && git submodule update --init --recursive && cmake . --preset x64-debug-linux && cd .. && rm -rf spectrelauncher
 RUN echo "Finishing building dependencies, now finishing by setting up user..."
