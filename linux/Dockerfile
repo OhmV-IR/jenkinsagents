@@ -24,7 +24,7 @@ RUN apt install -y \
     python3.12 python3.12-venv openjdk-21-jdk openjdk-25-jdk openjdk-17-jdk \ 
     '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-dev libxi-dev libxkbcommon-dev \
     libxkbcommon-x11-dev libegl1-mesa-dev
-RUN apt install -y clang-tidy clang-tools clang-format codespell
+RUN apt install -y clang-tidy clang-tools clang-format codespell cppcheck
 
 # Install dotnet SDKs
 ENV DOTNET_ROOT=/opt/dotnet
