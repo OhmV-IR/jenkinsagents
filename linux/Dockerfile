@@ -11,7 +11,7 @@ RUN apt install -y \
     openssh-client build-essential ninja-build openjdk-21-jre fontconfig \
     zip unzip tar autoconf autoconf-archive automake libtool \
     linux-libc-dev pkg-config software-properties-common \
-    nasm bison flex gperf python3-jinja2 libcap-dev libmount-dev libcrypt-dev \
+    nasm bison flex python3 python3.12-venv \
     libx11-dev libxext-dev libxrender-dev libxtst-dev libxrandr-dev \
     libltdl-dev libxi-dev libxcursor-dev libxinerama-dev \
     libgl1-mesa-dev libglu1-mesa-dev libasound2-dev \
@@ -21,7 +21,7 @@ RUN apt install -y \
     libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
     libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
     libx11-xcb-dev libxkbcommon-x11-dev libegl1-mesa-dev \
-    python3 python3-venv openjdk-21-jdk openjdk-25-jdk openjdk-17-jdk \ 
+    python3.12 python3.12-venv openjdk-21-jdk openjdk-25-jdk openjdk-17-jdk \ 
     '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-dev libxi-dev libxkbcommon-dev \
     libxkbcommon-x11-dev libegl1-mesa-dev
 RUN apt install -y clang-tidy clang-tools clang-format codespell cppcheck
@@ -77,7 +77,6 @@ RUN echo "Building spectrelauncher dependencies"
 RUN git clone https://github.com/SpectreRevival/spectrelauncher && cd spectrelauncher && git submodule update --init --recursive && cmake . --preset x64-debug-linux && cd .. && rm -rf spectrelauncher
 RUN echo "Finishing building dependencies, now finishing by setting up user..."
 
-RUN mkdir -p /home/jenkins/cppcheckworkspace
 # We use the shell form (no brackets) so ${VARIABLES} are expanded correctly.
 # Removed -s (silent) so you can see the download progress and any errors.
 ENTRYPOINT curl -O ${JENKINS_URL}/jnlpJars/agent.jar && \
