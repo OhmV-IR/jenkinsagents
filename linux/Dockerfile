@@ -1,4 +1,4 @@
-FROM ubuntu:26.04
+FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -11,7 +11,7 @@ RUN apt install -y \
     openssh-client build-essential ninja-build openjdk-21-jre fontconfig \
     zip unzip tar autoconf autoconf-archive automake libtool \
     linux-libc-dev pkg-config software-properties-common \
-    nasm bison flex gperf python3-jinja2 libcap-dev libmount-dev libxcrypt-dev \
+    nasm bison flex gperf python3-jinja2 libcap-dev libmount-dev libcrypt-dev \
     libx11-dev libxext-dev libxrender-dev libxtst-dev libxrandr-dev \
     libltdl-dev libxi-dev libxcursor-dev libxinerama-dev \
     libgl1-mesa-dev libglu1-mesa-dev libasound2-dev \
