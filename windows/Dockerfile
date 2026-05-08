@@ -49,11 +49,14 @@ ENV JENKINS_URL="" \
 USER jenkins
 WORKDIR C:\\Users\\jenkins
 
+RUN Invoke-WebRequest -Uri "https://win.rustup.rs/x86_64" -OutFile "rustup-init.exe"
+RUN .\\rustup-init.exe -y
+RUN Remove-Item "rustup-init.exe"
+
 RUN Set-Content -Path C:\shell.bat -Value '@echo off'; ` \
     Add-Content -Path C:\shell.bat -Value 'call "C:\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" x64 && %*';
 SHELL ["C:\\shell.bat", "cmd", "/S", "/C"]
 RUN git clone https://github.com/SpectreRevival/pragmabackend && cd pragmabackend && git submodule update --init --recursive && cmake . --preset x64-debug-win && cd .. && rmdir /s /q pragmabackend && if exist C:\\b rmdir /s /q C:\\b && if exist C:\\d rmdir /s /q C:\\d && if exist C:\\p rmdir /s /q C:\\p
-RUN git clone https://github.com/SpectreRevival/spectrelauncher && cd spectrelauncher && git submodule update --init --recursive && cmake . --preset x64-debug-win && cd .. && rmdir /s /q spectrelauncher && if exist C:\\b rmdir /s /q C:\\b && if exist C:\\d rmdir /s /q C:\\d && if exist C:\\p rmdir /s /q C:\\p
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
 
 ENTRYPOINT ["powershell", "-NoLogo", "-Command", \
