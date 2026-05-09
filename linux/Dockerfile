@@ -23,6 +23,13 @@ RUN apt update && apt install -y \
     python3 python3-venv openjdk-21-jdk openjdk-25-jdk openjdk-17-jdk \ 
     '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-dev libxi-dev libxkbcommon-dev \
     libxkbcommon-x11-dev libegl1-mesa-dev libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
+# Install rust
+ENV RUSTUP_HOME="/rustup"
+ENV CARGO_HOME="/cargo"
+ENV PATH="/cargo/bin:${PATH}"
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+RUN rustup component add rustfmt clippy
+
 RUN apt install -y clang-tidy clang-tools clang-format codespell cppcheck
 
 # Install dotnet SDKs
@@ -68,9 +75,6 @@ ENV AGENT_WORKDIR="/home/jenkins"
 
 USER jenkins
 WORKDIR /home/jenkins/workspace
-
-# Install rust
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
 RUN echo "Beginning prebake of some heavy vcpkg dependencies from a few projects"
 RUN echo "Building pragmabackend dependencies"
