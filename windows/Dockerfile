@@ -50,6 +50,10 @@ RUN net user jenkins /add /passwordreq:no; \
     net localgroup Administrators jenkins /add; \
     New-Item -ItemType Directory -Path C:\Users\jenkins -Force; \
     icacls C:\\Users\\jenkins /grant 'jenkins:(OI)(CI)F' /T
+RUN takeown /f "C:\cargo" /r /d y
+RUN icacls "C:\cargo" /grant "jenkins:F" /t
+RUN takeown /f "C:\rustup" /r /d y
+RUN icacls "C:\rustup" /grant "jenkins:F" /t
 
 # 5. Environment Configuration
 ENV JENKINS_URL="" \ 

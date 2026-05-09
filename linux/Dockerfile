@@ -67,6 +67,8 @@ RUN useradd -m -d /home/jenkins -s /bin/bash jenkins && \
     chown -R jenkins:jenkins /home/jenkins
 
 RUN echo "jenkins ALL=(ALL) NOPASSWD:ALL" | tee /etc/sudoers.d/jenkins
+RUN chown -R jenkins /cargo
+RUN chown -R jenkins /rustup
 
 ENV JENKINS_URL=""
 ENV AGENT_NAME=""
