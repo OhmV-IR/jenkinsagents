@@ -34,6 +34,15 @@ RUN reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execut
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
 RUN if (-not (Test-Path 'C:\BuildTools')) { throw 'Build Tools installation failed' }
 
+# Install rust
+ENV CARGO_HOME="C:\cargo"
+ENV RUSTUP_HOME="C:\rustup"
+ENV PATH="C:\cargo\bin;${PATH}"
+RUN Invoke-WebRequest -Uri "https://win.rustup.rs/x86_64" -OutFile "rustup-init.exe"
+RUN .\\rustup-init.exe -y
+RUN rustup component add rustfmt clippy
+RUN Remove-Item "rustup-init.exe"
+
 # 4. Setup Jenkins User
 RUN net user jenkins /add /passwordreq:no; \
     net localgroup Administrators jenkins /add; \
@@ -48,10 +57,6 @@ ENV JENKINS_URL="" \
 
 USER jenkins
 WORKDIR C:\\Users\\jenkins
-
-RUN Invoke-WebRequest -Uri "https://win.rustup.rs/x86_64" -OutFile "rustup-init.exe"
-RUN .\\rustup-init.exe -y
-RUN Remove-Item "rustup-init.exe"
 
 RUN Set-Content -Path C:\shell.bat -Value '@echo off'; ` \
     Add-Content -Path C:\shell.bat -Value 'call "C:\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" x64 && %*';
