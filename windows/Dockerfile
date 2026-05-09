@@ -35,13 +35,15 @@ SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
 RUN if (-not (Test-Path 'C:\BuildTools')) { throw 'Build Tools installation failed' }
 
 # Install rust
-ENV CARGO_HOME="C:\cargo"
-ENV RUSTUP_HOME="C:\rustup"
-ENV PATH="C:\cargo\bin;${PATH}"
-RUN Invoke-WebRequest -Uri "https://win.rustup.rs/x86_64" -OutFile "rustup-init.exe"
-RUN .\\rustup-init.exe -y
+ENV CARGO_HOME="C:\cargo" \
+    RUSTUP_HOME="C:\rustup"
+
+RUN Invoke-WebRequest -Uri "https://win.rustup.rs/x86_64" -OutFile "C:\TEMP\rustup-init.exe"
+RUN C:\TEMP\rustup-init.exe -y --default-toolchain stable --profile default
+RUN [Environment]::SetEnvironmentVariable('Path', 'C:\cargo\bin;' + $env:Path, [EnvironmentVariableTarget]::Machine)
 RUN rustup component add rustfmt clippy
-RUN Remove-Item "rustup-init.exe"
+RUN del C:\TEMP\rustup-init.exe
+
 
 # 4. Setup Jenkins User
 RUN net user jenkins /add /passwordreq:no; \
