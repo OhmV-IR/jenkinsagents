@@ -3,11 +3,10 @@ FROM ubuntu:26.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install docker build tools
-RUN apt update
-RUN apt install -y ca-certificates curl gnupg lsb-release openjdk-17-jre-headless git sudo
+RUN apt update && apt install -y ca-certificates curl gnupg lsb-release openjdk-17-jre-headless git sudo
 
 # Install compilers, vcpkg dependencies, and other tools
-RUN apt install -y \
+RUN apt update && apt install -y \
     openssh-client build-essential ninja-build openjdk-21-jre fontconfig \
     zip unzip tar autoconf autoconf-archive automake libtool \
     linux-libc-dev pkg-config software-properties-common \
