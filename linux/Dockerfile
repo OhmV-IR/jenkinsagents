@@ -75,6 +75,8 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
 RUN echo "Beginning prebake of some heavy vcpkg dependencies from a few projects"
 RUN echo "Building pragmabackend dependencies"
+# cache invalidation step
+ADD https://api.github.com/repos/SpectreRevival/pragmabackend/git/refs/heads/master version.json
 RUN git clone https://github.com/SpectreRevival/pragmabackend && cd pragmabackend && git submodule update --init --recursive && cmake . --preset x64-debug-linux && cd .. && rm -rf pragmabackend
 RUN echo "Finishing building dependencies, now finishing by setting up user..."
 
