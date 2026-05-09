@@ -23,7 +23,7 @@ RUN apt install -y \
     libx11-xcb-dev libxkbcommon-x11-dev libegl1-mesa-dev \
     python3 python3-venv openjdk-21-jdk openjdk-25-jdk openjdk-17-jdk \ 
     '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-dev libxi-dev libxkbcommon-dev \
-    libxkbcommon-x11-dev libegl1-mesa-dev
+    libxkbcommon-x11-dev libegl1-mesa-dev libgtk-3-dev libwebkit2gtk-4.0-dev libayatana-appindicator3-dev librsvg2-dev
 RUN apt install -y clang-tidy clang-tools clang-format codespell cppcheck
 
 # Install dotnet SDKs
