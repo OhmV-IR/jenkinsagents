@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  jenkins-agent:
+    image: jenkins-agent-linux:latest
+    container_name: new-laptop-linux-container
+    restart: unless-stopped
+    
+    # DNS Configuration
+    dns:
+      - 192.168.36.250
+
+    # Environment Variables
+    environment:
+      JENKINS_URL: "https://jenkins.bgfamily.ca"
+      AGENT_SECRET: "bea0a7bb95806523be347ea497a38d52ca3034888c7ea87c7bb546ee08fb9247"
+      AGENT_NAME: "new-laptop-linux-container"
+      AGENT_WORKDIR: "/home/jenkins" # Double backslashes to escape properly in YAML

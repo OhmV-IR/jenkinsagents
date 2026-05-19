@@ -34,8 +34,8 @@ ADD https://github.com/espressif/idf-im-ui/releases/download/v0.12.2/eim-cli-lin
 RUN apt install -y ./eim-cli.deb
 RUN rm eim-cli.deb
 RUN apt install -y python3-pip
-RUN eim install
-RUN eim install -i v5.1.7
+COPY eim-config.toml eim-config.toml
+RUN eim install --config eim-config.toml --non-interactive
 RUN eim select v5.1.7
 
 RUN apt install -y clang-tidy clang-tools clang-format codespell cppcheck
@@ -77,6 +77,7 @@ RUN useradd -m -d /home/jenkins -s /bin/bash jenkins && \
 RUN echo "jenkins ALL=(ALL) NOPASSWD:ALL" | tee /etc/sudoers.d/jenkins
 RUN chown -R jenkins /cargo
 RUN chown -R jenkins /rustup
+RUN chmod -R 755 /esp
 
 ENV JENKINS_URL=""
 ENV AGENT_NAME=""

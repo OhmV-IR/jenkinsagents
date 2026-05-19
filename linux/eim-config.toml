@@ -1,0 +1,11 @@
+path = "/esp"
+esp_idf_json_path = "/esp"
+tool_download_folder_name = "dist"
+tool_install_folder_name = "tools"
+
+target = ["all"]
+idf_versions = ["v5.1.7", "v6.0.1"]
+
+non_interactive = true
+install_all_prerequisites = true
+cleanup = true

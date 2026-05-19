@@ -47,8 +47,8 @@ RUN del C:\TEMP\rustup-init.exe
 # Install esp-idf
 ADD https://github.com/espressif/idf-im-ui/releases/download/v0.12.2/eim-cli-windows-x64.exe eim-cli/bin/eim.exe
 RUN [Environment]::SetEnvironmentVariable('Path', 'C:\eim-cli\bin;' + $env:Path, [EnvironmentVariableTarget]::Machine)
-RUN eim install
-RUN eim install -i v5.1.7
+COPY eim-config.toml eim-config.toml
+RUN eim install --config eim-config.toml --non-interactive
 RUN eim select v5.1.7
 
 # 4. Setup Jenkins User
