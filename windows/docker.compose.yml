@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  jenkins-agent:
+    image: jenkins-agent-windows:latest
+    container_name: new-laptop-container
+    restart: unless-stopped
+    
+    # DNS Configuration
+    dns:
+      - 192.168.36.250
+
+    # Environment Variables
+    environment:
+      JENKINS_URL: "https://jenkins.bgfamily.ca"
+      AGENT_SECRET: "f7d78d2ab5a0a346df0e2633e443b57a7d30eb6e5951d6f2f6ab76835865b5cf"
+      AGENT_NAME: "new-laptop-container"
+      AGENT_WORKDIR: "C:\\Users\\jenkins" # Double backslashes to escape properly in YAML
+
+    # Resource Constraints (CPUs and Memory)
+    deploy:
+      resources:
+        limits:
+          cpus: '12'
+          memory: 16g

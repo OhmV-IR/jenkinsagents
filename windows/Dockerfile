@@ -44,6 +44,12 @@ RUN [Environment]::SetEnvironmentVariable('Path', 'C:\cargo\bin;' + $env:Path, [
 RUN rustup component add rustfmt clippy
 RUN del C:\TEMP\rustup-init.exe
 
+# Install esp-idf
+ADD https://github.com/espressif/idf-im-ui/releases/download/v0.12.2/eim-cli-windows-x64.exe eim-cli/bin/eim.exe
+RUN [Environment]::SetEnvironmentVariable('Path', 'C:\eim-cli\bin;' + $env:Path, [EnvironmentVariableTarget]::Machine)
+RUN eim install
+RUN eim install -i v5.1.7
+RUN eim select v5.1.7
 
 # 4. Setup Jenkins User
 RUN net user jenkins /add /passwordreq:no; \
