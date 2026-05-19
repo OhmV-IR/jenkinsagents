@@ -35,7 +35,7 @@ RUN apt install -y ./eim-cli.deb
 RUN rm eim-cli.deb
 RUN apt install -y python3-pip
 COPY eim-config.toml eim-config.toml
-RUN eim install --config eim-config.toml --non-interactive
+RUN eim install --config eim-config.toml --non-interactive true
 RUN eim select v5.1.7
 
 RUN apt install -y clang-tidy clang-tools clang-format codespell cppcheck
