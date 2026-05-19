@@ -30,6 +30,14 @@ ENV PATH="/cargo/bin:${PATH}"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN rustup component add rustfmt clippy
 
+ADD https://github.com/espressif/idf-im-ui/releases/download/v0.12.2/eim-cli-linux-x64.deb eim-cli.deb
+RUN apt install -y ./eim-cli.deb
+RUN rm eim-cli.deb
+RUN apt install -y python3-pip
+RUN eim install
+RUN eim install -i v5.1.7
+RUN eim select v5.1.7
+
 RUN apt install -y clang-tidy clang-tools clang-format codespell cppcheck
 
 # Install dotnet SDKs
