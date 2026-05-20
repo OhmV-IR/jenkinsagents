@@ -1,5 +1,3 @@
-path = "/Espressif"
-esp_idf_json_path = "/Espressif"
 tool_download_folder_name = "dist"
 tool_install_folder_name = "tools"
 

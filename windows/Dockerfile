@@ -49,7 +49,6 @@ ADD https://github.com/espressif/idf-im-ui/releases/download/v0.12.2/eim-cli-win
 RUN [Environment]::SetEnvironmentVariable('Path', 'C:\eim-cli\bin;' + $env:Path, [EnvironmentVariableTarget]::Machine)
 COPY eim-config.toml eim-config.toml
 RUN eim install --config eim-config.toml --non-interactive true
-RUN eim select v5.1.7
 
 # 4. Setup Jenkins User
 RUN net user jenkins /add /passwordreq:no; \
@@ -70,6 +69,7 @@ ENV JENKINS_URL="" \
 USER jenkins
 WORKDIR C:\\Users\\jenkins
 
+RUN eim select v5.1.7
 RUN Set-Content -Path C:\shell.bat -Value '@echo off'; ` \
     Add-Content -Path C:\shell.bat -Value 'call "C:\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" x64 && %*';
 SHELL ["C:\\shell.bat", "cmd", "/S", "/C"]
