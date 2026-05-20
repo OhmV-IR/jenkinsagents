@@ -34,9 +34,6 @@ ADD https://github.com/espressif/idf-im-ui/releases/download/v0.12.2/eim-cli-lin
 RUN apt install -y ./eim-cli.deb
 RUN rm eim-cli.deb
 RUN apt install -y python3-pip
-COPY eim-config.toml eim-config.toml
-RUN mkdir -p /etc/udev/rules.d/ # it tries to install smth here so must create dir to not fail build
-RUN eim install --config eim-config.toml --non-interactive true
 
 RUN apt install -y clang-tidy clang-tools clang-format codespell cppcheck
 
@@ -77,11 +74,6 @@ RUN useradd -m -d /home/jenkins -s /bin/bash jenkins && \
 RUN echo "jenkins ALL=(ALL) NOPASSWD:ALL" | tee /etc/sudoers.d/jenkins
 RUN chown -R jenkins /cargo
 RUN chown -R jenkins /rustup
-RUN chmod -R 755 /esp
-RUN mkdir -p /home/jenkins/.espressif/tools
-RUN cp /esp/eim_idf.json /home/jenkins/.espressif/tools/eim_idf.json
-RUN chown -R jenkins /home/jenkins/.espressif
-RUN chmod -R 755 /home/jenkins/.espressif
 
 ENV JENKINS_URL=""
 ENV AGENT_NAME=""
@@ -91,6 +83,9 @@ ENV AGENT_WORKDIR="/home/jenkins"
 USER jenkins
 WORKDIR /home/jenkins/workspace
 
+COPY eim-config.toml eim-config.toml
+RUN mkdir -p /etc/udev/rules.d/ # it tries to install smth here so must create dir to not fail build
+RUN eim install --config eim-config.toml --non-interactive true
 RUN eim select v5.1.7
 
 RUN echo "Beginning prebake of some heavy vcpkg dependencies from a few projects"
