@@ -34,6 +34,7 @@ ADD https://github.com/espressif/idf-im-ui/releases/download/v0.12.2/eim-cli-lin
 RUN apt install -y ./eim-cli.deb
 RUN rm eim-cli.deb
 RUN apt install -y python3-pip
+RUN mkdir -p /etc/udev/rules.d/ # it tries to install smth here so must create dir to not fail build
 
 RUN apt install -y clang-tidy clang-tools clang-format codespell cppcheck
 
@@ -84,7 +85,6 @@ USER jenkins
 WORKDIR /home/jenkins/workspace
 
 COPY eim-config.toml eim-config.toml
-RUN mkdir -p /etc/udev/rules.d/ # it tries to install smth here so must create dir to not fail build
 RUN eim install --config eim-config.toml --non-interactive true
 RUN eim select v5.1.7
 
