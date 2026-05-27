@@ -2,7 +2,7 @@ tool_download_folder_name = "dist"
 tool_install_folder_name = "tools"
 
 target = ["all"]
-idf_versions = ["v5.1.7", "v6.0.1"]
+idf_versions = ["v5.1.7", "v6.0.1", "v5.4.4"]
 
 non_interactive = true
 install_all_prerequisites = true
