@@ -37,7 +37,7 @@ RUN rm eim-cli.deb
 RUN apt install -y python3-pip
 RUN mkdir -p /etc/udev/rules.d/ # it tries to install smth here so must create dir to not fail build
 
-RUN apt install -y clang-tidy clang-tools clang-format codespell cppcheck
+RUN apt install -y clang-tidy clang-tools clang-format codespell cppcheck sqlfluff
 
 # Install dotnet SDKs
 ENV DOTNET_ROOT=/opt/dotnet
