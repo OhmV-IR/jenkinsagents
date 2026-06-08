@@ -5,6 +5,34 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install docker build tools
 RUN apt update && apt install -y ca-certificates curl gnupg lsb-release openjdk-17-jre-headless git sudo
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release \
+    build-essential \
+    git \
+    && install -m 0755 -d /etc/apt/keyrings \
+    # 2. Add Docker's official GPG key
+    && curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc \
+    && chmod a+r /etc/apt/keyrings/docker.asc \
+    # 3. Set up the stable repository using the OS release codename
+    && echo \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+    tee /etc/apt/sources.list.d/docker.list > /dev/null \
+    # 4. Install Docker Engine, CLI, and plugins (including buildx and compose)
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+    docker-ce \
+    docker-ce-cli \
+    containerd.io \
+    docker-buildx-plugin \
+    docker-compose-plugin \
+    # 5. Clean up APT cache to reduce image size
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install compilers, vcpkg dependencies, and other tools
 RUN apt update && apt install -y \
     openssh-client build-essential ninja-build openjdk-21-jre fontconfig \
@@ -98,10 +126,4 @@ RUN echo "Finishing building dependencies, now finishing by setting up user..."
 
 # We use the shell form (no brackets) so ${VARIABLES} are expanded correctly.
 # Removed -s (silent) so you can see the download progress and any errors.
-ENTRYPOINT curl -O ${JENKINS_URL}/jnlpJars/agent.jar && \
-           java -jar agent.jar \
-           -url ${JENKINS_URL} \
-           -secret ${AGENT_SECRET} \
-           -name "${AGENT_NAME}" \
-           -webSocket \
-           -workDir "${AGENT_WORKDIR}"
+ENTRYPOINT ["/bin/bash", "-c", "dockerd > /var/log/dockerd.log 2>&1 & until docker info >/dev/null 2>&1; do sleep 1; done; curl -O ${JENKINS_URL}/jnlpJars/agent.jar && exec java -jar agent.jar -url ${JENKINS_URL} -secret ${AGENT_SECRET} -name \"${AGENT_NAME}\" -webSocket -workDir \"${AGENT_WORKDIR}\""]

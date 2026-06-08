@@ -5,11 +5,11 @@ services:
     image: jenkins-agent-linux:latest
     container_name: new-laptop-linux-container
     restart: unless-stopped
-    
+    privileged: true    
     # DNS Configuration
     dns:
       - 192.168.36.250
-
+    command: sh -c "dockerd > /var/log/dockerd.log 2>&1 & tail -f /dev/null"
     # Environment Variables
     environment:
       JENKINS_URL: "https://jenkins.bgfamily.ca"
