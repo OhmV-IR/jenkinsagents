@@ -9,7 +9,8 @@ services:
     # DNS Configuration
     dns:
       - 192.168.36.250
-    command: sh -c "dockerd > /var/log/dockerd.log 2>&1 & tail -f /dev/null"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     # Environment Variables
     environment:
       JENKINS_URL: "https://jenkins.bgfamily.ca"

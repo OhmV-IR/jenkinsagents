@@ -5,6 +5,12 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install docker build tools
 RUN apt update && apt install -y ca-certificates curl gnupg lsb-release openjdk-17-jre-headless git sudo
 
+RUN install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
+    chmod a+r /etc/apt/keyrings/docker.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+    apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
@@ -101,6 +107,9 @@ RUN useradd -m -d /home/jenkins -s /bin/bash jenkins && \
     mkdir -p /home/jenkins/workspace && \
     chown -R jenkins:jenkins /home/jenkins
 
+RUN usermod -aG docker jenkins
+RUN apt install -y util-linux-extra
+RUN newgrp docker
 RUN echo "jenkins ALL=(ALL) NOPASSWD:ALL" | tee /etc/sudoers.d/jenkins
 RUN chown -R jenkins /cargo
 RUN chown -R jenkins /rustup
@@ -113,6 +122,7 @@ ENV AGENT_WORKDIR="/home/jenkins"
 USER jenkins
 WORKDIR /home/jenkins/workspace
 
+RUN newgrp docker
 COPY eim-config.toml eim-config.toml
 RUN eim install --config eim-config.toml --non-interactive true
 RUN eim select v5.1.7
@@ -126,4 +136,14 @@ RUN echo "Finishing building dependencies, now finishing by setting up user..."
 
 # We use the shell form (no brackets) so ${VARIABLES} are expanded correctly.
 # Removed -s (silent) so you can see the download progress and any errors.
-ENTRYPOINT ["/bin/bash", "-c", "dockerd > /var/log/dockerd.log 2>&1 & until docker info >/dev/null 2>&1; do sleep 1; done; curl -O ${JENKINS_URL}/jnlpJars/agent.jar && exec java -jar agent.jar -url ${JENKINS_URL} -secret ${AGENT_SECRET} -name \"${AGENT_NAME}\" -webSocket -workDir \"${AGENT_WORKDIR}\""]
+ENTRYPOINT sudo dockerd > /tmp/dockerd.log 2>&1 & \
+           echo "Starting Docker daemon..." && \
+           until sudo docker info >/dev/null 2>&1; do sleep 1; done && \
+           echo "Docker daemon is ready. Fetching Jenkins agent..." && \
+           curl -O ${JENKINS_URL}/jnlpJars/agent.jar && \
+           java -jar agent.jar \
+           -url ${JENKINS_URL} \
+           -secret ${AGENT_SECRET} \
+           -name "${AGENT_NAME}" \
+           -webSocket \
+           -workDir "${AGENT_WORKDIR}"
