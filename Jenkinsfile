@@ -7,6 +7,7 @@ pipeline {
 					agent { label 'docker-linux' }
 					steps {
 						checkout scm
+						sh "id"
 						sh "docker build -t jenkins-agent-linux:latest -f linux/Dockerfile linux"
 						sh "docker tag jenkins-agent-linux:latest registry.bgfamily.ca/jenkins-agent-linux:latest"
 						sh "docker push registry.bgfamily.ca/jenkins-agent-linux:latest"
