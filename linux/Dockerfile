@@ -136,10 +136,7 @@ RUN echo "Finishing building dependencies, now finishing by setting up user..."
 
 # We use the shell form (no brackets) so ${VARIABLES} are expanded correctly.
 # Removed -s (silent) so you can see the download progress and any errors.
-ENTRYPOINT sudo dockerd > /tmp/dockerd.log 2>&1 & \
-           echo "Starting Docker daemon..." && \
-           until sudo docker info >/dev/null 2>&1; do sleep 1; done && \
-           echo "Docker daemon is ready. Fetching Jenkins agent..." && \
+ENTRYPOINT sudo chmod 666 /var/run/docker.sock && \
            curl -O ${JENKINS_URL}/jnlpJars/agent.jar && \
            java -jar agent.jar \
            -url ${JENKINS_URL} \

@@ -1,12 +1,10 @@
-version: '3.8'
-
 services:
   jenkins-agent:
     image: jenkins-agent-linux:latest
     container_name: new-laptop-linux-container
     restart: unless-stopped
-    privileged: true    
     # DNS Configuration
+    privileged: true
     dns:
       - 192.168.36.250
     volumes:
