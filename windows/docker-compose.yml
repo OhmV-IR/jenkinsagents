@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   jenkins-agent:
     image: jenkins-agent-windows:latest
