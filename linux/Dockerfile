@@ -72,8 +72,6 @@ ENV DOTNET_ROOT=/opt/dotnet
 ENV PATH="${PATH}:${DOTNET_ROOT}:${DOTNET_ROOT}/tools"
 RUN curl -L -O https://dot.net/v1/dotnet-install.sh
 RUN chmod +x dotnet-install.sh
-RUN ./dotnet-install.sh --install-dir $DOTNET_ROOT --channel 8.0
-RUN ./dotnet-install.sh --install-dir $DOTNET_ROOT --channel 9.0
 RUN ./dotnet-install.sh --install-dir $DOTNET_ROOT --channel 10.0
 
 # Setup GitHub CLI repository
@@ -90,12 +88,6 @@ RUN curl -fsSL https://apt.kitware.com/keys/kitware-archive-latest.asc \
     echo "deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.asc] https://apt.kitware.com/ubuntu/ $(lsb_release -cs) main" \
     > /etc/apt/sources.list.d/kitware.list && \
     apt-get update && apt-get install -y cmake
-
-ENV APPIMAGE_EXTRACT_AND_RUN=1
-RUN apt install -y libfuse2 file binutils
-RUN curl -L -O https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
-RUN chmod +x linuxdeployqt-continuous-x86_64.AppImage
-RUN mv linuxdeployqt-continuous-x86_64.AppImage /usr/local/bin/linuxdeployqt
 
 RUN useradd -m -d /home/jenkins -s /bin/bash jenkins && \
     mkdir -p /home/jenkins/workspace && \
@@ -119,14 +111,6 @@ COPY eim-config.toml eim-config.toml
 RUN eim install --config eim-config.toml --non-interactive true
 RUN eim select v5.1.7
 
-RUN echo "Beginning prebake of some heavy vcpkg dependencies from a few projects"
-RUN echo "Building pragmabackend dependencies"
-# cache invalidation step
-ADD https://api.github.com/repos/SpectreRevival/pragmabackend/git/refs/heads/master version.json
-RUN git clone https://github.com/SpectreRevival/pragmabackend && cd pragmabackend && git submodule update --init --recursive && cmake . --preset x64-debug-linux && cd .. && rm -rf pragmabackend
-RUN echo "Finishing building dependencies, now finishing by setting up user..."
-# We use the shell form (no brackets) so ${VARIABLES} are expanded correctly.
-# Removed -s (silent) so you can see the download progress and any errors.
 ENTRYPOINT curl -O ${JENKINS_URL}/jnlpJars/agent.jar && \
            java -jar agent.jar \
            -url ${JENKINS_URL} \
