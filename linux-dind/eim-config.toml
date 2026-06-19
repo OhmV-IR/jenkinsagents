@@ -1,6 +1,0 @@
-target = ["all"]
-idf_versions = ["v5.1.7", "v5.4.4", "v6.0.1"]
-
-non_interactive = true
-install_all_prerequisites = true
-cleanup = true

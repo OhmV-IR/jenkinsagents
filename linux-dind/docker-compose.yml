@@ -1,7 +1,7 @@
 services:
   jenkins-agent:
-    image: jenkins-agent-linux:latest
-    container_name: new-laptop-linux-container
+    image: jenkins-agent-linux-dind:latest
+    container_name: new-laptop-linux-container-dind
     restart: unless-stopped
     # DNS Configuration
     privileged: true
@@ -11,11 +11,9 @@ services:
       - docker
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
     # Environment Variables
     environment:
       JENKINS_URL: "https://jenkins.bgfamily.ca"
-      AGENT_SECRET: "bea0a7bb95806523be347ea497a38d52ca3034888c7ea87c7bb546ee08fb9247"
-      AGENT_NAME: "new-laptop-linux-container"
+      AGENT_SECRET: "48e83b94e789d24e8cce97dc64c2254c302824d237ac7d84b601d3e6dfe6d4fd"
+      AGENT_NAME: "new-laptop-container-dind"
       AGENT_WORKDIR: "/home/jenkins" # Double backslashes to escape properly in YAML

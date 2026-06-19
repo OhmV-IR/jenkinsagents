@@ -10,12 +10,6 @@ pipeline {
 						sh "docker build -t jenkins-agent-linux:latest -f linux/Dockerfile linux"
 						sh "docker tag jenkins-agent-linux:latest registry.bgfamily.ca/jenkins-agent-linux:latest"
 						sh "docker push registry.bgfamily.ca/jenkins-agent-linux:latest"
-					}
-				}
-				stage("Build linux-dind docker image"){
-					agent { label 'docker-linux' }
-					steps {
-						checkout scm
 						sh "docker build -t jenkins-agent-linux-dind:latest -f linux-dind/Dockerfile linux-dind"
 						sh "docker tag jenkins-agent-linux-dind:latest registry.bgfamily.ca/jenkins-agent-linux-dind:latest"
 						sh "docker push registry.bgfamily.ca/jenkins-agent-linux-dind:latest"
