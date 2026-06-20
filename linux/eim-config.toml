@@ -1,6 +1,14 @@
-target = ["all"]
-idf_versions = ["v5.1.7", "v5.4.4", "v6.0.1"]
-
+target = ["esp32s3", "esp32"]
+idf_versions = ["v5.1.7"]
 non_interactive = true
+wizard_all_questions = false
+mirror = "https://github.com"
+idf_mirror = "https://github.com"
+pypi_mirror = "https://pypi.org/simple"
+recurse_submodules = true
 install_all_prerequisites = true
+skip_prerequisites_check = false
 cleanup = true
+
+[idf_tools_per_version]
+"v5.1.7" = ["xtensa-esp32-elf", "xtensa-esp32s3-elf", "cmake", "openocd-esp32", "ninja", "esp-rom-elfs"]
