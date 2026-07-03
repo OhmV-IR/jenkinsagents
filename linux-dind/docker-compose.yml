@@ -9,11 +9,12 @@ services:
       - 192.168.36.250
     group_add:
       - docker
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    # Environment Variables
     environment:
       JENKINS_URL: "https://jenkins.bgfamily.ca"
-      AGENT_SECRET: "48e83b94e789d24e8cce97dc64c2254c302824d237ac7d84b601d3e6dfe6d4fd"
-      AGENT_NAME: "new-laptop-container-dind"
+      AGENT_SECRET: "a9b37ce31ef2aad7392343a5e1c949ca3e1d422af3215bdbf82c43ce14fc3ceb"
+      AGENT_NAME: "new-laptop-linux-container-dind"
       AGENT_WORKDIR: "/home/jenkins" # Double backslashes to escape properly in YAML
+    volumes:
+      - jenkins-dind-storage:/var/lib/docker
+volumes:
+  jenkins-dind-storage:

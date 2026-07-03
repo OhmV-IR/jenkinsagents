@@ -5,7 +5,7 @@ echo "Starting nested Docker engine..."
 
 sudo dockerd \
     --host=unix:///var/run/docker.sock \
-    --storage-driver=vfs \
+    --storage-driver=overlay2 \
     > /tmp/dockerd.log 2>&1 &
 
 until sudo docker info >/dev/null 2>&1; do

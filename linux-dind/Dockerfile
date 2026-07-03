@@ -14,5 +14,6 @@ RUN mkdir -p /etc/docker && \
 COPY dind-entrypoint.sh /usr/local/bin/dind-entrypoint.sh
 RUN chmod +x /usr/local/bin/dind-entrypoint.sh
 
+USER jenkins
 ENTRYPOINT ["/usr/local/bin/dind-entrypoint.sh"]
 CMD ["sh", "-c", "curl -O ${JENKINS_URL}/jnlpJars/agent.jar && java -jar agent.jar -url ${JENKINS_URL} -secret ${AGENT_SECRET} -name \"${AGENT_NAME}\" -webSocket -workDir \"${AGENT_WORKDIR}\""]
