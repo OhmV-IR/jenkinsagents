@@ -74,8 +74,6 @@ RUN Set-Content -Path C:\shell.bat -Value '@echo off'; ` \
     Add-Content -Path C:\shell.bat -Value 'call "C:\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" x64 && %*';
 SHELL ["C:\\shell.bat", "cmd", "/S", "/C"]
 # to invalidate cache when repo changes
-ADD https://api.github.com/repos/SpectreRevival/pragmabackend/git/refs/heads/master version.json
-RUN git clone https://github.com/SpectreRevival/pragmabackend && cd pragmabackend && git submodule update --init --recursive && cmake . --preset x64-debug-win && cd .. && rmdir /s /q pragmabackend && if exist C:\\b rmdir /s /q C:\\b && if exist C:\\d rmdir /s /q C:\\d && if exist C:\\p rmdir /s /q C:\\p
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
 
 ENTRYPOINT ["powershell", "-NoLogo", "-Command", \
