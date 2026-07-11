@@ -51,7 +51,7 @@ RUN apt update && apt install -y \
     python3 python3-venv openjdk-21-jdk openjdk-25-jdk openjdk-17-jdk \ 
     '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-dev libxi-dev libxkbcommon-dev \
     libxkbcommon-x11-dev libegl1-mesa-dev libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
-    xdg-utils patchelf
+    xdg-utils patchelf libmosquitto-dev
 # Install rust
 ENV RUSTUP_HOME="/rustup"
 ENV CARGO_HOME="/cargo"
@@ -107,7 +107,7 @@ ENV AGENT_WORKDIR="/home/jenkins"
 USER jenkins
 WORKDIR /home/jenkins/workspace
 
-COPY eim-config.toml eim-config.toml
+COPY ./eim-config.toml ./eim-config.toml
 RUN eim install --config eim-config.toml --non-interactive true
 RUN eim select v5.1.7
 
