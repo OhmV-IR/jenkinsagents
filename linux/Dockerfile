@@ -89,6 +89,9 @@ RUN curl -fsSL https://apt.kitware.com/keys/kitware-archive-latest.asc \
     > /etc/apt/sources.list.d/kitware.list && \
     apt-get update && apt-get install -y cmake
 
+RUN curl -fsSL "https://github.com/bufbuild/buf/releases/download/v1.30.0/buf-$(uname -s)-$(uname -m)" -o /usr/local/bin/buf
+RUN chmod +x /usr/local/bin/buf
+
 RUN useradd -m -d /home/jenkins -s /bin/bash jenkins && \
     mkdir -p /home/jenkins/workspace && \
     chown -R jenkins:jenkins /home/jenkins

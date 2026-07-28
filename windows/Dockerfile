@@ -9,7 +9,7 @@ RUN Set-ExecutionPolicy Bypass -Scope Process -Force; \
     iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 
 # 2. Install basic build dependencies
-RUN choco install -y git cmake ninja curl openjdk make python312
+RUN choco install -y git cmake ninja curl openjdk make python312 buf
 
 # 3. Install VS 2026 Build Tools
 RUN mkdir C:\TEMP
@@ -70,11 +70,6 @@ WORKDIR C:\\Users\\jenkins
 COPY eim-config.toml eim-config.toml
 RUN eim install --config eim-config.toml --non-interactive true
 RUN eim select v5.1.7
-RUN Set-Content -Path C:\shell.bat -Value '@echo off'; ` \
-    Add-Content -Path C:\shell.bat -Value 'call "C:\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" x64 && %*';
-SHELL ["C:\\shell.bat", "cmd", "/S", "/C"]
-# to invalidate cache when repo changes
-SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
 
 ENTRYPOINT ["powershell", "-NoLogo", "-Command", \
     "$ErrorActionPreference = 'Stop'; \
