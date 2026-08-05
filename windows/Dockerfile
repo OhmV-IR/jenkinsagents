@@ -9,7 +9,7 @@ RUN Set-ExecutionPolicy Bypass -Scope Process -Force; \
     iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 
 # 2. Install basic build dependencies
-RUN choco install -y git cmake ninja curl openjdk make python312 buf
+RUN choco install -y git cmake ninja curl openjdk make python312
 
 # 3. Install VS 2026 Build Tools
 RUN mkdir C:\TEMP
@@ -34,16 +34,6 @@ RUN reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execut
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
 RUN if (-not (Test-Path 'C:\BuildTools')) { throw 'Build Tools installation failed' }
 
-# Install rust
-ENV CARGO_HOME="C:\cargo" \
-    RUSTUP_HOME="C:\rustup"
-
-RUN Invoke-WebRequest -Uri "https://win.rustup.rs/x86_64" -OutFile "C:\TEMP\rustup-init.exe"
-RUN C:\TEMP\rustup-init.exe -y --default-toolchain stable --profile default
-RUN [Environment]::SetEnvironmentVariable('Path', 'C:\cargo\bin;' + $env:Path, [EnvironmentVariableTarget]::Machine)
-RUN rustup component add rustfmt clippy
-RUN del C:\TEMP\rustup-init.exe
-
 # Install esp-idf
 ADD https://github.com/espressif/idf-im-ui/releases/download/v0.12.2/eim-cli-windows-x64.exe eim-cli/bin/eim.exe
 RUN [Environment]::SetEnvironmentVariable('Path', 'C:\eim-cli\bin;' + $env:Path, [EnvironmentVariableTarget]::Machine)
@@ -53,10 +43,6 @@ RUN net user jenkins /add /passwordreq:no; \
     net localgroup Administrators jenkins /add; \
     New-Item -ItemType Directory -Path C:\Users\jenkins -Force; \
     icacls C:\\Users\\jenkins /grant 'jenkins:(OI)(CI)F' /T
-RUN takeown /f "C:\cargo" /r /d y
-RUN icacls "C:\cargo" /grant "jenkins:F" /t
-RUN takeown /f "C:\rustup" /r /d y
-RUN icacls "C:\rustup" /grant "jenkins:F" /t
 
 # 5. Environment Configuration
 ENV JENKINS_URL="" \ 
@@ -70,6 +56,21 @@ WORKDIR C:\\Users\\jenkins
 COPY eim-config.toml eim-config.toml
 RUN eim install --config eim-config.toml --non-interactive true
 RUN eim select v5.1.7
+
+# Install rust
+ENV CARGO_HOME="C:\cargo" \
+    RUSTUP_HOME="C:\rustup"
+RUN Invoke-WebRequest -Uri "https://win.rustup.rs/x86_64" -OutFile "C:\TEMP\rustup-init.exe"
+RUN C:\TEMP\rustup-init.exe -y --default-toolchain stable --profile default
+RUN [Environment]::SetEnvironmentVariable('Path', 'C:\cargo\bin;' + $env:Path, [EnvironmentVariableTarget]::Machine)
+RUN rustup component add rustfmt clippy
+RUN rustup target add aarch64-linux-android
+RUN rustup target add x86_64-pc-windows-gnu
+RUN rustup target add x86_64-linux-android
+RUN rustup target add aarch64-apple-ios
+RUN rustup target add armv7-linux-androideabi
+RUN rustup target add i686-linux-android
+RUN del C:\TEMP\rustup-init.exe
 
 ENTRYPOINT ["powershell", "-NoLogo", "-Command", \
     "$ErrorActionPreference = 'Stop'; \

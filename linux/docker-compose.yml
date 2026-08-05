@@ -3,12 +3,12 @@ services:
     image: jenkins-agent-linux:latest
     container_name: new-laptop-linux-container
     restart: unless-stopped
+    group_add:
+      - "982"
     # DNS Configuration
     privileged: true
     dns:
       - 192.168.36.250
-    group_add:
-      - docker
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

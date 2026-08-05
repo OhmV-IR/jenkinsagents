@@ -58,6 +58,12 @@ ENV CARGO_HOME="/cargo"
 ENV PATH="/cargo/bin:${PATH}"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN rustup component add rustfmt clippy
+RUN rustup target add aarch64-linux-android
+RUN rustup target add x86_64-pc-windows-gnu
+RUN rustup target add x86_64-linux-android
+RUN rustup target add aarch64-apple-ios
+RUN rustup target add armv7-linux-androideabi
+RUN rustup target add i686-linux-android
 
 ADD https://github.com/espressif/idf-im-ui/releases/download/v0.12.2/eim-cli-linux-x64.deb eim-cli.deb
 RUN apt install -y ./eim-cli.deb

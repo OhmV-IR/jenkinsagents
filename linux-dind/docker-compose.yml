@@ -8,7 +8,7 @@ services:
     dns:
       - 192.168.36.250
     group_add:
-      - docker
+      - "982"
     environment:
       JENKINS_URL: "https://jenkins.bgfamily.ca"
       AGENT_SECRET: "a9b37ce31ef2aad7392343a5e1c949ca3e1d422af3215bdbf82c43ce14fc3ceb"
