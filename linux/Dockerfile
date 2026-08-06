@@ -52,18 +52,6 @@ RUN apt update && apt install -y \
     '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-dev libxi-dev libxkbcommon-dev \
     libxkbcommon-x11-dev libegl1-mesa-dev libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
     xdg-utils patchelf libmosquitto-dev
-# Install rust
-ENV RUSTUP_HOME="/rustup"
-ENV CARGO_HOME="/cargo"
-ENV PATH="/cargo/bin:${PATH}"
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-RUN rustup component add rustfmt clippy
-RUN rustup target add aarch64-linux-android
-RUN rustup target add x86_64-pc-windows-gnu
-RUN rustup target add x86_64-linux-android
-RUN rustup target add aarch64-apple-ios
-RUN rustup target add armv7-linux-androideabi
-RUN rustup target add i686-linux-android
 
 ADD https://github.com/espressif/idf-im-ui/releases/download/v0.12.2/eim-cli-linux-x64.deb eim-cli.deb
 RUN apt install -y ./eim-cli.deb
@@ -105,8 +93,13 @@ RUN useradd -m -d /home/jenkins -s /bin/bash jenkins && \
 RUN usermod -aG docker jenkins
 RUN apt install -y util-linux-extra
 RUN echo "jenkins ALL=(ALL) NOPASSWD:ALL" | tee /etc/sudoers.d/jenkins
-RUN chown -R jenkins /cargo
-RUN chown -R jenkins /rustup
+
+RUN mkdir -p /cargo
+RUN mkdir -p /rustup
+RUN chown jenkins:jenkins /cargo
+RUN chown jenkins:jenkins /rustup
+RUN chmod 755 /cargo
+RUN chmod 755 /rustup
 
 ENV JENKINS_URL=""
 ENV AGENT_NAME=""
@@ -119,6 +112,19 @@ WORKDIR /home/jenkins/workspace
 COPY ./eim-config.toml ./eim-config.toml
 RUN eim install --config eim-config.toml --non-interactive true
 RUN eim select v5.1.7
+
+ENV RUSTUP_HOME="/rustup"
+ENV CARGO_HOME="/cargo"
+ENV PATH="/cargo/bin:${PATH}"
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+RUN rustup component add rustfmt clippy
+RUN rustup target add aarch64-linux-android
+RUN rustup target add x86_64-pc-windows-gnu
+RUN rustup target add x86_64-linux-android
+RUN rustup target add aarch64-apple-ios
+RUN rustup target add armv7-linux-androideabi
+RUN rustup target add i686-linux-android
+RUN cargo install protoc-gen-prost
 
 ENTRYPOINT curl -O ${JENKINS_URL}/jnlpJars/agent.jar && \
            java -jar agent.jar \

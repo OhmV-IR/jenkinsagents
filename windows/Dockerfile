@@ -70,6 +70,7 @@ RUN rustup target add x86_64-linux-android
 RUN rustup target add aarch64-apple-ios
 RUN rustup target add armv7-linux-androideabi
 RUN rustup target add i686-linux-android
+RUN cargo install protoc-gen-prost
 RUN del C:\TEMP\rustup-init.exe
 
 ENTRYPOINT ["powershell", "-NoLogo", "-Command", \
