@@ -44,6 +44,8 @@ RUN net user jenkins /add /passwordreq:no; \
     New-Item -ItemType Directory -Path C:\Users\jenkins -Force; \
     icacls C:\\Users\\jenkins /grant 'jenkins:(OI)(CI)F' /T
 
+RUN [Environment]::SetEnvironmentVariable('Path', 'C:\cargo\bin;' + $env:Path, [EnvironmentVariableTarget]::Machine)
+
 # 5. Environment Configuration
 ENV JENKINS_URL="" \ 
     AGENT_NAME="" \
@@ -62,7 +64,6 @@ ENV CARGO_HOME="C:\cargo" \
     RUSTUP_HOME="C:\rustup"
 RUN Invoke-WebRequest -Uri "https://win.rustup.rs/x86_64" -OutFile "C:\TEMP\rustup-init.exe"
 RUN C:\TEMP\rustup-init.exe -y --default-toolchain stable --profile default
-RUN [Environment]::SetEnvironmentVariable('Path', 'C:\cargo\bin;' + $env:Path, [EnvironmentVariableTarget]::Machine)
 RUN rustup component add rustfmt clippy
 RUN rustup target add aarch64-linux-android
 RUN rustup target add x86_64-pc-windows-gnu
@@ -72,6 +73,9 @@ RUN rustup target add armv7-linux-androideabi
 RUN rustup target add i686-linux-android
 RUN cargo install protoc-gen-prost
 RUN del C:\TEMP\rustup-init.exe
+
+RUN git config --global --unset credential.helper
+RUN git config --system --unset credential.helper
 
 ENTRYPOINT ["powershell", "-NoLogo", "-Command", \
     "$ErrorActionPreference = 'Stop'; \
