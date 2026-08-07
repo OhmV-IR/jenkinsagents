@@ -74,8 +74,7 @@ RUN rustup target add i686-linux-android
 RUN cargo install protoc-gen-prost
 RUN del C:\TEMP\rustup-init.exe
 
-RUN git config --global credential.helper '""'
-RUN git config --system credential.helper '""'
+ENV GIT_TERMINAL_PROMPT=0
 
 ENTRYPOINT ["powershell", "-NoLogo", "-Command", \
     "$ErrorActionPreference = 'Stop'; \
