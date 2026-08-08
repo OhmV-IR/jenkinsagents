@@ -1,5 +1,5 @@
 target = ["esp32s3", "esp32"]
-idf_versions = ["v5.1.7", "v6.0.1"]
+idf_versions = ["v5.1.7", "v6.0.2"]
 non_interactive = true
 wizard_all_questions = false
 mirror = "https://github.com"
@@ -12,4 +12,4 @@ cleanup = true
 
 [idf_tools_per_version]
 "v5.1.7" = ["xtensa-esp32-elf", "xtensa-esp32s3-elf", "cmake", "openocd-esp32", "ninja", "esp-rom-elfs"]
-"v6.0.1" = ["xtensa-esp32-elf", "cmake", "openocd-esp32", "ninja", "esp-rom-elfs"]
+"v6.0.2" = ["xtensa-esp32-elf", "cmake", "openocd-esp32", "ninja", "esp-rom-elfs"]
