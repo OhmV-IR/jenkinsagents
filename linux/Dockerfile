@@ -126,6 +126,10 @@ RUN rustup target add armv7-linux-androideabi
 RUN rustup target add i686-linux-android
 RUN cargo install protoc-gen-prost
 
+ENV DOTNET_SKIP_FIRST_TIME_EXPERIENCE="true"
+ENV DOTNET_CLI_TELEMETRY_OUTPUT="true"
+ENV DOTNET_NOLOGO="true"
+
 ENTRYPOINT curl -O ${JENKINS_URL}/jnlpJars/agent.jar && \
            java -jar agent.jar \
            -url ${JENKINS_URL} \

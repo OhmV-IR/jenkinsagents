@@ -85,7 +85,9 @@ RUN cargo install protoc-gen-prost
 RUN Remove-Item -Path C:\TEMP\rustup-init.exe -Force
 
 ENV GIT_TERMINAL_PROMPT=0
-
+ENV DOTNET_SKIP_FIRST_TIME_EXPERIENCE="true"
+ENV DOTNET_CLI_TELEMETRY_OPTOUT="true"
+ENV DOTNET_NOLOGO="true"
 ENTRYPOINT ["powershell", "-NoLogo", "-Command", \
     "$ErrorActionPreference = 'Stop'; \
     Write-Host 'Fetching agent.jar from' $env:JENKINS_URL; \
