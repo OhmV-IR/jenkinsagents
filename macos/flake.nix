@@ -40,6 +40,14 @@
         protoc-gen-prost
         nodejs
         curl
+        fastlane
+        xcbeautify
+        cocoapods
+        git-lfs
+        ios-deploy
+        jq
+        gnupg
+        sops
         (rust-bin.stable.latest.default.override {
           extensions = [ "rust-src" "rust-analyzer" "clippy" ];
           targets = [
