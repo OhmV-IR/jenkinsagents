@@ -4,12 +4,12 @@
   inputs = {
     # Pinned to 26.05-darwin because 26.11+ dropped x86_64-darwin support
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-26.05-darwin";
-    nix-darwin.url = "github:LnL7/nix-darwin";
+    nix-darwin.url = "github:LnL7/nix-darwin/nix-darwin-26.05";
     nix-darwin.inputs.nixpkgs.follows = "nixpkgs";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
-    }; # Added missing semicolon
+    };
   };
 
   outputs = inputs@{ self, nix-darwin, nixpkgs, rust-overlay }:
