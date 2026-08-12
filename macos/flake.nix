@@ -15,6 +15,9 @@
   outputs = inputs@{ self, nix-darwin, nixpkgs, rust-overlay }:
   let
     configuration = { pkgs, ... }: {
+      # Set primary user required for system defaults and Homebrew
+      system.primaryUser = "ohm";
+
       # Allow unfree packages (required for VS Code)
       nixpkgs.config.allowUnfree = true;
       nixpkgs.overlays = [ (import rust-overlay) ];
@@ -73,8 +76,7 @@
       # Platform configuration for Intel Mac
       nixpkgs.hostPlatform = "x86_64-darwin";
 
-      # Enable Nix daemon service
-      services.nix-daemon.enable = true;
+      # Enable Nix experimental features
       nix.settings.experimental-features = "nix-command flakes";
 
       # Compatibility state version
