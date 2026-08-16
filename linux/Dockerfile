@@ -5,14 +5,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install docker build tools
 RUN apt update && apt install -y ca-certificates curl gnupg lsb-release openjdk-17-jre-headless git sudo
 
-# Disable Git credential helpers so Jenkins' selected PAT is not overridden by cached/stale credentials.
-RUN git config --system --unset-all credential.helper || true && \
-    git config --global --unset-all credential.helper || true && \
-    git config --system --unset-all 'credential.https://github.com.helper' || true && \
-    git config --global --unset-all 'credential.https://github.com.helper' || true && \
-    git config --system credential.interactive never && \
-    git config --global credential.interactive never
-
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \

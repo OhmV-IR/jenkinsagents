@@ -13,12 +13,6 @@ RUN Set-ExecutionPolicy Bypass -Scope Process -Force; \
 # 2. Install basic build dependencies
 RUN choco install -y git cmake ninja curl openjdk make python312
 RUN git config --system core.longpaths true
-RUN git config --system --unset-all credential.helper 2>$null; \
-    git config --global --unset-all credential.helper 2>$null; \
-    git config --system --unset-all "credential.https://github.com.helper" 2>$null; \
-    git config --global --unset-all "credential.https://github.com.helper" 2>$null; \
-    git config --system credential.interactive never; \
-    git config --global credential.interactive never
 
 # 3. Install VS 2026 Build Tools
 RUN mkdir C:\TEMP
