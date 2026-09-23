@@ -11,7 +11,7 @@ RUN Set-ExecutionPolicy Bypass -Scope Process -Force; \
     iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 
 # 2. Install basic build dependencies
-RUN choco install -y git cmake ninja curl openjdk make python312
+RUN choco install -y git cmake ninja curl temurin25jdk make python312
 RUN git config --system core.longpaths true
 
 # 3. Install VS 2026 Build Tools
@@ -39,7 +39,7 @@ RUN if (-not (Test-Path 'C:\BuildTools')) { throw 'Build Tools installation fail
 
 # Install esp-idf
 ADD https://github.com/espressif/idf-im-ui/releases/download/v0.12.2/eim-cli-windows-x64.exe eim-cli/bin/eim.exe
-RUN [Environment]::SetEnvironmentVariable('Path', 'C:\eim-cli\bin;' + 'C:\cargo\bin;' + $env:Path, [EnvironmentVariableTarget]::Machine)
+RUN [Environment]::SetEnvironmentVariable('Path', 'C:\ProgramData\chocolatey\bin;' + 'C:\eim-cli\bin;' + 'C:\cargo\bin;' + $env:Path, [EnvironmentVariableTarget]::Machine)
 
 # 4. Setup Jenkins User
 RUN net user jenkins /add /passwordreq:no; \
