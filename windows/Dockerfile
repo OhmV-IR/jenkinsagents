@@ -11,7 +11,7 @@ RUN Set-ExecutionPolicy Bypass -Scope Process -Force; \
     iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 
 # 2. Install basic build dependencies
-RUN choco install -y git cmake ninja curl temurin25jdk make python312
+RUN choco install -y git cmake ninja curl temurin25 make python312
 RUN git config --system core.longpaths true
 
 # 3. Install VS 2026 Build Tools
@@ -80,7 +80,12 @@ ENV CARGO_HOME="C:\cargo" \
 RUN Invoke-WebRequest -Uri "https://win.rustup.rs/x86_64" -OutFile "C:\TEMP\rustup-init.exe"; \
     C:\TEMP\rustup-init.exe -y --default-toolchain stable --profile default;
 RUN rustup component add rustfmt clippy
-RUN rustup target add aarch64-linux-android x86_64-pc-windows-gnu x86_64-linux-android aarch64-apple-ios armv7-linux-androideabi i686-linux-android
+RUN rustup target add aarch64-linux-android
+RUN rustup target add x86_64-pc-windows-gnu
+RUN rustup target add x86_64-linux-android
+RUN rustup target add aarch64-apple-ios
+RUN rustup target add armv7-linux-androideabi
+RUN rustup target add i686-linux-android
 RUN cargo install protoc-gen-prost
 RUN Remove-Item -Path C:\TEMP\rustup-init.exe -Force
 
