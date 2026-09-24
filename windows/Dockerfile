@@ -78,14 +78,9 @@ ENV CARGO_HOME="C:\cargo" \
     RUSTUP_HOME="C:\rustup"
 
 RUN Invoke-WebRequest -Uri "https://win.rustup.rs/x86_64" -OutFile "C:\TEMP\rustup-init.exe"; \
-    C:\TEMP\rustup-init.exe -y --default-toolchain stable --profile default;
+    C:\TEMP\rustup-init.exe -y --default-toolchain stable --profile minimal --quiet;
 RUN rustup component add rustfmt clippy
-RUN rustup target add aarch64-linux-android
-RUN rustup target add x86_64-pc-windows-gnu
-RUN rustup target add x86_64-linux-android
-RUN rustup target add aarch64-apple-ios
-RUN rustup target add armv7-linux-androideabi
-RUN rustup target add i686-linux-android
+RUN rustup target add aarch64-linux-android x86_64-pc-windows-gnu x86_64-linux-android aarch64-apple-ios armv7-linux-androideabi i686-linux-android
 RUN cargo install protoc-gen-prost
 RUN Remove-Item -Path C:\TEMP\rustup-init.exe -Force
 
