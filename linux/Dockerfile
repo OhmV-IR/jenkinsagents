@@ -1,37 +1,8 @@
-FROM ubuntu:26.04
+FROM cruizba/ubuntu-dind:resolute-latest@sha256:04cd04068660769cb917084850f4ef04988c95aa615be83f09fb16a0c2671c08
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install docker build tools
 RUN apt update && apt install -y ca-certificates curl gnupg lsb-release openjdk-17-jre-headless git sudo
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    curl \
-    gnupg \
-    lsb-release \
-    build-essential \
-    git \
-    && install -m 0755 -d /etc/apt/keyrings \
-    # 2. Add Docker's official GPG key
-    && curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc \
-    && chmod a+r /etc/apt/keyrings/docker.asc \
-    # 3. Set up the stable repository using the OS release codename
-    && echo \
-    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-    tee /etc/apt/sources.list.d/docker.list > /dev/null \
-    # 4. Install Docker Engine, CLI, and plugins (including buildx and compose)
-    && apt-get update \
-    && apt-get install -y --no-install-recommends \
-    docker-ce \
-    docker-ce-cli \
-    containerd.io \
-    docker-buildx-plugin \
-    docker-compose-plugin \
-    # 5. Clean up APT cache to reduce image size
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
 
 # Install compilers, vcpkg dependencies, and other tools
 RUN apt update && apt install -y \
@@ -130,10 +101,6 @@ ENV DOTNET_SKIP_FIRST_TIME_EXPERIENCE="true"
 ENV DOTNET_CLI_TELEMETRY_OUTPUT="true"
 ENV DOTNET_NOLOGO="true"
 
-ENTRYPOINT curl -O ${JENKINS_URL}/jnlpJars/agent.jar && \
-           java -jar agent.jar \
-           -url ${JENKINS_URL} \
-           -secret ${AGENT_SECRET} \
-           -name "${AGENT_NAME}" \
-           -webSocket \
-           -workDir "${AGENT_WORKDIR}"
+COPY jenkins-agent-entrypoint.sh /usr/local/bin
+RUN chmod +x /usr/local/bin/jenkins-agent-entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/jenkins-agent-entrypoint.sh"]
