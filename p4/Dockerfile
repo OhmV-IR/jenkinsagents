@@ -23,4 +23,4 @@ RUN apt-get update && apt-get install -y p4-server && \
 # Expose default Perforce port
 EXPOSE 1666
 
-ENTRYPOINT ["/bin/bash"]
+ENTRYPOINT ["tail", "-f", "/dev/null"]
