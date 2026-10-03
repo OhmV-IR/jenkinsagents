@@ -13,9 +13,9 @@ pipeline {
                             sh "docker tag jenkins-agent-linux:latest localhost:5000/jenkins-agent-linux:latest"
                             sh "docker push localhost:5000/jenkins-agent-linux:latest"
                             
-                            sh "docker build -t jenkins-agent-linux-dind:latest -f linux-dind/Dockerfile linux-dind"
-                            sh "docker tag jenkins-agent-linux-dind:latest localhost:5000/jenkins-agent-linux-dind:latest"
-                            sh "docker push localhost:5000/jenkins-agent-linux-dind:latest"
+                            sh "docker build -t jenkins-agent-linux-ndind:latest -f ndind/Dockerfile ndind"
+                            sh "docker tag jenkins-agent-linux-ndind:latest localhost:5000/jenkins-agent-linux-ndind:latest"
+                            sh "docker push localhost:5000/jenkins-agent-linux-ndind:latest"
                             sh 'docker logout localhost:5000'
                         }
                     }
