@@ -34,18 +34,18 @@ pipeline {
                     }
                 }
                 stage("Build windows docker image"){
-                    agent { label 'docker-windows' }
-                    steps {
-                        checkout scm
-                        withCredentials([usernamePassword(credentialsId: 'docker_server_priv_registry', usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {
-                            bat 'echo %REG_PASS% | docker login localhost:5000 -u "%REG_USER%" --password-stdin'
-                            bat "docker build -t jenkins-agent-windows:latest -f windows/Dockerfile windows"
-                            bat "docker tag jenkins-agent-windows:latest localhost:5000/jenkins-agent-windows:latest"
-                            bat "docker push localhost:5000/jenkins-agent-windows:latest"
-                            bat 'docker logout localhost:5000'
-                        }
-                    }
-                }
+					agent { label 'docker-windows' }
+					steps {
+						checkout scm
+						withCredentials([usernamePassword(credentialsId: 'docker_server_priv_registry', usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {
+							bat 'echo %REG_PASS%| docker login localhost:5000 -u "%REG_USER%" --password-stdin'
+							bat "docker build -t jenkins-agent-windows:latest -f windows/Dockerfile windows"
+							bat "docker tag jenkins-agent-windows:latest localhost:5000/jenkins-agent-windows:latest"
+							bat "docker push localhost:5000/jenkins-agent-windows:latest"
+							bat 'docker logout localhost:5000'
+						}
+					}
+				}
                 stage("Build controller docker image"){
                     agent { label 'docker-linux' }
                     steps {
