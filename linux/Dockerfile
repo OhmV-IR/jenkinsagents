@@ -101,6 +101,6 @@ ENV DOTNET_SKIP_FIRST_TIME_EXPERIENCE="true"
 ENV DOTNET_CLI_TELEMETRY_OUTPUT="true"
 ENV DOTNET_NOLOGO="true"
 
-COPY jenkins-agent-entrypoint.sh /usr/local/bin
-RUN chmod +x /usr/local/bin/jenkins-agent-entrypoint.sh
-ENTRYPOINT ["/usr/local/bin/jenkins-agent-entrypoint.sh"]
+COPY jenkins-agent-entrypoint.sh /home/jenkins
+RUN chmod +x /home/jenkins/jenkins-agent-entrypoint.sh
+ENTRYPOINT ["/home/jenkins/jenkins-agent-entrypoint.sh"]
