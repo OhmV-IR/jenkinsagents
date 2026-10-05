@@ -1,3 +1,16 @@
+# syntax=docker/dockerfile:1
+# Engine image built by unreal/linux/Dockerfile (installed UE build + matching Android SDK). It is
+# built separately and only on purpose, because compiling the engine takes hours. Pulled through
+# registry.ohmvir.dev (pushes go to localhost:5000, see the Jenkinsfile).
+ARG UE_ENGINE_IMAGE=registry.ohmvir.dev/unreal-engine-linux:5.8.3-release
+# Fixed uid/gid of the jenkins user so the engine layers can be copied with --link (see below).
+ARG JENKINS_UID=1001
+
+FROM ${UE_ENGINE_IMAGE} AS unreal-engine
+
+# ---------------------------------------------------------------------------------------------
+# Stage: final agent image
+# ---------------------------------------------------------------------------------------------
 FROM cruizba/ubuntu-dind:resolute-latest@sha256:04cd04068660769cb917084850f4ef04988c95aa615be83f09fb16a0c2671c08
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -57,7 +70,9 @@ RUN curl -fsSL https://apt.kitware.com/keys/kitware-archive-latest.asc \
 RUN curl -fsSL "https://github.com/bufbuild/buf/releases/download/v1.30.0/buf-$(uname -s)-$(uname -m)" -o /usr/local/bin/buf
 RUN chmod +x /usr/local/bin/buf
 
-RUN useradd -m -d /home/jenkins -s /bin/bash jenkins && \
+ARG JENKINS_UID
+RUN groupadd -g ${JENKINS_UID} jenkins && \
+    useradd -m -u ${JENKINS_UID} -g jenkins -d /home/jenkins -s /bin/bash jenkins && \
     mkdir -p /home/jenkins/workspace && \
     chown -R jenkins:jenkins /home/jenkins
 
@@ -71,6 +86,35 @@ RUN chown jenkins:jenkins /cargo
 RUN chown jenkins:jenkins /rustup
 RUN chmod 755 /cargo
 RUN chmod 755 /rustup
+
+# ---------------------------------------------------------------------------------------------
+# Unreal Engine (Linux host). Covers Linux x64, Linux server, and Android/Meta Quest (+ OpenXR).
+# Windows targets are covered by the Windows agent, see windows/Dockerfile.
+# ---------------------------------------------------------------------------------------------
+# Shared libraries the editor/commandlet (UnrealEditor-Cmd, used for cooking) loads at runtime
+# that are not already pulled in by the -dev packages above.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libnss3 libnspr4 libxss1 libxcomposite1 libxdamage1 libsm6 libxv1 \
+    libfontconfig1 libfreetype6 libglu1-mesa libvulkan1 xdg-user-dirs && \
+    rm -rf /var/lib/apt/lists/*
+
+# --link makes these large layers independent of every layer above them, so editing anything
+# earlier in this file neither re-copies them nor changes their digests (no re-push/re-pull).
+# --link cannot resolve user names, hence the pinned numeric JENKINS_UID. Both trees are owned by
+# jenkins: UBT/UAT write under Engine/ in some workflows, and Gradle may install extra SDK packages.
+COPY --link --from=unreal-engine --chown=${JENKINS_UID}:${JENKINS_UID} /opt/UnrealEngine /opt/UnrealEngine
+COPY --link --from=unreal-engine --chown=${JENKINS_UID}:${JENKINS_UID} /opt/android-sdk /opt/android-sdk
+ENV UE_ROOT=/opt/UnrealEngine
+
+# Android toolchain for UE 5.8 (Android + Meta Quest), the same SDK the engine was compiled with:
+# NDK r27c, build-tools 35.0.1, SDK platform 35, JDK 21. Linux only; Windows has no Android support.
+ENV JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
+    ANDROID_HOME=/opt/android-sdk \
+    ANDROID_SDK_ROOT=/opt/android-sdk \
+    NDKROOT=/opt/android-sdk/ndk/27.2.12479018 \
+    NDK_ROOT=/opt/android-sdk/ndk/27.2.12479018 \
+    ANDROID_NDK_ROOT=/opt/android-sdk/ndk/27.2.12479018
+ENV PATH="${PATH}:${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools"
 
 ENV JENKINS_URL=""
 ENV AGENT_NAME=""
