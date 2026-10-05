@@ -1,46 +1,11 @@
 # syntax=docker/dockerfile:1
-# Unreal Engine version baked into the agent. Bump together with UE_ARCHIVE_URL / UE_ARCHIVE_SHA256.
-ARG UE_VERSION=5.8.3
-# Fixed uid/gid of the jenkins user so the engine layer can be copied with --link (see below).
+# Engine image built by unreal/linux/Dockerfile (installed UE build + matching Android SDK). It is
+# built separately and only on purpose, because compiling the engine takes hours.
+ARG UE_ENGINE_IMAGE=localhost:5000/unreal-engine-linux:5.8.3-release
+# Fixed uid/gid of the jenkins user so the engine layers can be copied with --link (see below).
 ARG JENKINS_UID=1001
 
-# ---------------------------------------------------------------------------------------------
-# Stage: unreal-engine
-# Downloads and extracts Epic's prebuilt Linux engine (Linux_Unreal_Engine_<ver>.zip from
-# https://www.unrealengine.com/linux). Epic only serves it behind an account login, so it has to
-# be mirrored somewhere this build can reach; pass that location with --build-arg UE_ARCHIVE_URL.
-# Living in its own stage means the ~25GB download/extract is cached independently of the agent
-# image, and the build arg (which may carry credentials) never ends up in the final image history.
-# ---------------------------------------------------------------------------------------------
-FROM cruizba/ubuntu-dind:resolute-latest@sha256:04cd04068660769cb917084850f4ef04988c95aa615be83f09fb16a0c2671c08 AS unreal-engine
-
-ARG UE_VERSION
-ARG UE_ARCHIVE_URL
-# Optional but recommended: sha256 of the archive, verified before extraction.
-ARG UE_ARCHIVE_SHA256=""
-
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl unzip && \
-    rm -rf /var/lib/apt/lists/*
-
-# Download, verify, extract and delete the archive in a single layer so the zip is never stored.
-RUN set -eu; \
-    if [ -z "${UE_ARCHIVE_URL:-}" ]; then \
-        echo "ERROR: --build-arg UE_ARCHIVE_URL=<url of Linux_Unreal_Engine_${UE_VERSION}.zip> is required" >&2; exit 1; \
-    fi; \
-    curl -fSL --retry 5 --retry-delay 10 -o /tmp/ue.zip "${UE_ARCHIVE_URL}"; \
-    if [ -n "${UE_ARCHIVE_SHA256}" ]; then echo "${UE_ARCHIVE_SHA256}  /tmp/ue.zip" | sha256sum -c -; fi; \
-    mkdir -p /tmp/ue; \
-    unzip -q /tmp/ue.zip -d /tmp/ue; \
-    rm -f /tmp/ue.zip; \
-    # The engine root is the folder holding Engine/ (the zip may or may not wrap it in a folder).
-    version_file="$(find /tmp/ue -maxdepth 4 -path '*/Engine/Build/Build.version' -print -quit)"; \
-    [ -n "${version_file}" ] || { echo "ERROR: archive does not contain Engine/Build/Build.version" >&2; exit 1; }; \
-    mv "$(dirname "$(dirname "$(dirname "${version_file}")")")" /opt/UnrealEngine; \
-    rm -rf /tmp/ue; \
-    found="$(sed -n 's/.*"\(Major\|Minor\|Patch\)Version": *\([0-9][0-9]*\).*/\2/p' /opt/UnrealEngine/Engine/Build/Build.version | paste -sd.)"; \
-    [ "${found}" = "${UE_VERSION}" ] || { echo "ERROR: archive contains UE ${found}, expected ${UE_VERSION}" >&2; exit 1; }; \
-    # Make sure the UBT/UAT entry scripts are executable even if the archive lost unix modes.
-    find /opt/UnrealEngine/Engine/Build/BatchFiles -name '*.sh' -exec chmod 0755 {} +
+FROM ${UE_ENGINE_IMAGE} AS unreal-engine
 
 # ---------------------------------------------------------------------------------------------
 # Stage: final agent image
@@ -122,7 +87,7 @@ RUN chmod 755 /cargo
 RUN chmod 755 /rustup
 
 # ---------------------------------------------------------------------------------------------
-# Unreal Engine (Linux host). Covers Linux x64 and Android/Meta Quest (+ OpenXR) targets.
+# Unreal Engine (Linux host). Covers Linux x64, Linux server, and Android/Meta Quest (+ OpenXR).
 # Windows targets are covered by the Windows agent, see windows/Dockerfile.
 # ---------------------------------------------------------------------------------------------
 # Shared libraries the editor/commandlet (UnrealEditor-Cmd, used for cooking) loads at runtime
@@ -132,15 +97,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libfontconfig1 libfreetype6 libglu1-mesa libvulkan1 xdg-user-dirs && \
     rm -rf /var/lib/apt/lists/*
 
-# --link makes this ~45GB layer independent of every layer above it, so editing anything earlier
-# in this file neither re-copies it nor changes its digest (no re-push/re-pull of the engine).
-# --link cannot resolve user names, hence the pinned numeric JENKINS_UID. The engine is owned by
-# jenkins because UBT/UAT write logs and intermediates under Engine/ in some workflows.
+# --link makes these large layers independent of every layer above them, so editing anything
+# earlier in this file neither re-copies them nor changes their digests (no re-push/re-pull).
+# --link cannot resolve user names, hence the pinned numeric JENKINS_UID. Both trees are owned by
+# jenkins: UBT/UAT write under Engine/ in some workflows, and Gradle may install extra SDK packages.
 COPY --link --from=unreal-engine --chown=${JENKINS_UID}:${JENKINS_UID} /opt/UnrealEngine /opt/UnrealEngine
+COPY --link --from=unreal-engine --chown=${JENKINS_UID}:${JENKINS_UID} /opt/android-sdk /opt/android-sdk
 ENV UE_ROOT=/opt/UnrealEngine
 
-# Android toolchain for UE 5.8 (Android + Meta Quest): NDK r27c, build-tools 35.0.1, SDK platform 35,
-# JDK 21. Installed only on Linux; the Windows agent deliberately has no Android support.
+# Android toolchain for UE 5.8 (Android + Meta Quest), the same SDK the engine was compiled with:
+# NDK r27c, build-tools 35.0.1, SDK platform 35, JDK 21. Linux only; Windows has no Android support.
 ENV JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
     ANDROID_HOME=/opt/android-sdk \
     ANDROID_SDK_ROOT=/opt/android-sdk \
@@ -148,8 +114,6 @@ ENV JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
     NDK_ROOT=/opt/android-sdk/ndk/27.2.12479018 \
     ANDROID_NDK_ROOT=/opt/android-sdk/ndk/27.2.12479018
 ENV PATH="${PATH}:${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools"
-# Owned by jenkins so Gradle can auto-install any extra SDK package a project asks for.
-RUN install -d -o jenkins -g jenkins -m 0755 ${ANDROID_HOME}
 
 ENV JENKINS_URL=""
 ENV AGENT_NAME=""
@@ -158,25 +122,6 @@ ENV AGENT_WORKDIR="/home/jenkins"
 
 USER jenkins
 WORKDIR /home/jenkins/workspace
-
-# Installed as jenkins (not root + chown) so the SDK is not duplicated into a second layer.
-ARG ANDROID_CMDLINE_TOOLS_BUILD=15859902
-ARG ANDROID_CMDLINE_TOOLS_SHA256=4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583
-RUN set -eu; \
-    curl -fSL --retry 5 -o /tmp/cmdline-tools.zip \
-        "https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_CMDLINE_TOOLS_BUILD}_latest.zip"; \
-    echo "${ANDROID_CMDLINE_TOOLS_SHA256}  /tmp/cmdline-tools.zip" | sha256sum -c -; \
-    unzip -q /tmp/cmdline-tools.zip -d /tmp/cmdline-tools; \
-    mkdir -p "${ANDROID_HOME}/cmdline-tools"; \
-    mv /tmp/cmdline-tools/cmdline-tools "${ANDROID_HOME}/cmdline-tools/latest"; \
-    rm -rf /tmp/cmdline-tools /tmp/cmdline-tools.zip; \
-    yes | sdkmanager --licenses > /dev/null; \
-    sdkmanager --install \
-        "platform-tools" \
-        "platforms;android-35" \
-        "build-tools;35.0.1" \
-        "ndk;27.2.12479018"; \
-    rm -rf "${HOME}/.android/cache"
 
 COPY ./eim-config.toml ./eim-config.toml
 RUN eim install --config eim-config.toml --non-interactive true

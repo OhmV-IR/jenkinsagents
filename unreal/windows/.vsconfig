@@ -1,0 +1,15 @@
+{
+  "version": "1.0",
+  "components": [
+    "Microsoft.Component.MSBuild",
+    "Microsoft.VisualStudio.Component.Roslyn.Compiler",
+    "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+    "Microsoft.VisualStudio.Component.VC.14.50.18.0.x86.x64",
+    "Microsoft.VisualStudio.Component.VC.Tools.ARM64",
+    "Microsoft.VisualStudio.Component.VC.14.50.18.0.ARM64",
+    "Microsoft.VisualStudio.Component.VC.Tools.ARM64EC",
+    "Microsoft.VisualStudio.Component.Windows11SDK.26100",
+    "Microsoft.Net.Component.4.6.2.TargetingPack",
+    "Microsoft.Net.Component.4.8.SDK"
+  ]
+}

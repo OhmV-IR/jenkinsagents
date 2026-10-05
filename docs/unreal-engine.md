@@ -1,19 +1,37 @@
 # Unreal Engine on the build agents
 
-Both agent images ship Epic's **prebuilt (Launcher/binary) Unreal Engine 5.8.3** at `UE_ROOT`.
-Each target platform is installed on one agent only. When a platform can be built on both hosts,
-it goes on Linux.
+The agents ship an **installed build of Unreal Engine compiled from Epic's GitHub source**, at the
+tag given by the `UE_GIT_TAG` build arg / Jenkins parameter (default `5.8.3-release`).
 
-| Target | Agent | What the image provides |
+Compiling the engine takes hours, so it lives in its own images, which are only rebuilt on purpose:
+
+| Image | Built from | Contents |
 | --- | --- | --- |
-| Linux x64 | Linux | Engine incl. bundled clang toolchain |
-| Android, incl. Meta Quest | Linux | Android SDK platform 35, build-tools 35.0.1, NDK r27c, JDK 21 |
-| OpenXR | Linux + Windows | Built-in OpenXR plugin (Quest via Android, PC VR via Win64), no extra SDK |
-| Windows x64 | Windows | Engine, MSVC 14.50 + Windows SDK 26100, UE prerequisites |
-| Windows ARM64 / ARM64EC | Windows | MSVC 14.50 ARM64 tools (UE 5.8 supports ARM64 for game targets only) |
-| Microsoft Store (UWP replacement) | Windows | Public Microsoft GDK for UE 5.8's MSGameStore / MSGamingRuntime plug-ins |
-| Xbox Series X\|S | — | **Not possible with the binary engine**, see below |
-| Dedicated server (Win/Linux) | — | **Not possible with the binary engine**, see below |
+| `localhost:5000/unreal-engine-linux:<tag>` | `unreal/linux/Dockerfile` | `/opt/UnrealEngine`, `/opt/android-sdk` (data-only, `FROM scratch`) |
+| `localhost:5000/unreal-engine-windows:<tag>` | `unreal/windows/Dockerfile` | `C:\UnrealEngine` (on nanoserver) |
+
+The agent images (`linux/`, `windows/`) only copy the engine out of these images. On Linux the copy
+uses `COPY --link`, so the engine layers keep the same digest when anything else in the agent
+changes, and are neither re-pushed nor re-pulled.
+
+## Target platforms
+
+Each target platform is built on one agent only. When both hosts could build a platform, it goes on Linux.
+
+| Target | Agent | How |
+| --- | --- | --- |
+| Linux x64 (game + server) | Linux | `WithLinux`, `WithServer` |
+| Android, incl. Meta Quest | Linux | `WithAndroid`; NDK r27c, build-tools 35.0.1, platform 35, JDK 21 |
+| OpenXR | Linux + Windows | Built-in OpenXR plugin (Quest via Android, PC VR via Win64) |
+| Windows x64 (game + server) | Windows | `WithWin64`, `WithServer`; MSVC 14.50, Windows SDK 26100 |
+| Windows ARM64 / ARM64EC | Windows | MSVC 14.50 ARM64 tools. Any Windows ARM64 option in the tag's `InstalledEngineBuild.xml` is enabled automatically. If there is none, the build logs a warning, and the option can be passed through `UE_BUILDGRAPH_EXTRA_ARGS` |
+| Microsoft Store (UWP replacement) | Windows | Public Microsoft GDK, used by UE 5.8's MSGameStore / MSGamingRuntime plug-ins |
+| Xbox Series X\|S | — | Needs the NDA-only GDKX and Epic's console platform extensions (see below) |
+
+Platforms that a host never builds are excluded twice. `Setup.sh`/`Setup.bat --exclude=...`
+skips their dependencies, and the `-set:With<Platform>=false` options skip their builds. The
+editor/template DDC is generated (`WithDDC=true`), and client-only targets are not built
+(`WithClient=false`).
 
 | | Linux | Windows |
 | --- | --- | --- |
@@ -22,90 +40,78 @@ it goes on Linux.
 
 ## One-time setup
 
-Epic serves the engine only to logged-in accounts. Neither image can download it from Epic
-directly, so you need to mirror the archives once. Host them anywhere the Docker hosts can reach
-over HTTP(S), such as a LAN file server or a pre-signed object storage URL.
+1. **GitHub access.** Create a GitHub account dedicated to CI (recommended, since a classic token
+   can read everything the account can). Link it to an Epic account at
+   <https://www.unrealengine.com/ue-on-github> and accept the invitation to the EpicGames
+   organization. Then create a classic personal access token with the `repo` scope.
+2. **Jenkins credential.** Add a *Secret text* credential with the ID `epic_github_token`
+   holding that token.
+   - **Linux** passes it as a BuildKit secret. It never appears in a layer or in the image history.
+   - **Windows** (the classic builder has no secrets) passes it as a build arg to a throwaway
+     `source` stage only. It ends up in that stage's local image history on the Windows build
+     host, but never in the pushed images.
+3. **Windows Docker host.** Containers default to 20 GB of disk, which is far too little for an
+   engine build. Set `{ "storage-opts": ["size=400GB"] }` in
+   `C:\ProgramData\docker\config\daemon.json` and restart Docker.
+   - The build runs with `-m` (Jenkins parameter `UE_WINDOWS_BUILD_MEMORY`, default `32g`),
+     because Hyper-V isolated builds default to very little memory.
+4. **Hardware.** Budget about 300 GB of free disk per host for the first build. Use 32 GB of RAM
+   or more; UnrealBuildTool scales its parallelism to the available cores and memory. Expect
+   several hours per host, including DDC generation.
+5. **First build.** Run the pipeline with **`BUILD_UNREAL_ENGINE` checked**. This builds and pushes
+   both engine images, then the agents. The agent builds fail with "not found" until the engine
+   image for `UE_GIT_TAG` exists in the registry.
 
-### Linux archive
+## Changing engine version
 
-1. Log in at <https://www.unrealengine.com/linux> and download `Linux_Unreal_Engine_5.8.3.zip`
-   (about 25 GB). Upload it unchanged to your mirror.
-2. Optional: run `sha256sum Linux_Unreal_Engine_5.8.3.zip` and put the result in the
-   `UE_ARCHIVE_SHA256` default in `linux/Dockerfile`.
+Run the pipeline with `BUILD_UNREAL_ENGINE` checked and the new `UE_GIT_TAG` (for example
+`5.8.4-release`), then change the parameter's default in the `Jenkinsfile`.
+- **Linux:** the downloaded dependency packs are kept in a BuildKit cache mount, so only changed
+  packs are fetched.
+- **Windows:** the Visual Studio and GDK layers are reused.
+- If the new version renames an installed-build option, the build stops before compiling and
+  names the missing option.
 
-### Windows archive
-
-The Windows engine exists only as a Launcher install, so you package one:
-
-1. On any Windows PC, install **UE 5.8.3** in the Epic Games Launcher. Under *Options*:
-   - **Deselect every target platform**: Android, iOS, Linux, Linux Arm64, tvOS, and so on.
-     Android and Linux are built on the Linux agent.
-   - Leave *Editor symbols for debugging* off.
-   - Keep the defaults for everything else.
-2. Run `tools\New-UnrealEngineArchive.ps1 -OutFile <path>\UnrealEngine-5.8.3-Win64.zip`.
-   The script checks the version, refuses to package an install that still contains
-   non-Windows platforms, drops `.pdb` files and prints the SHA256.
-3. Upload the zip to your mirror. Optionally put the SHA256 in the `UE_ARCHIVE_SHA256` default
-   in `windows/Dockerfile`.
-
-Studios with paid Unreal seats can download the official `UnrealEngineInstaller.msi` instead.
-Install it with `ENGINE_ANDROID_CHECKED=0 ENGINE_LINUX_CHECKED=0`, then package the result
-with the same script.
-
-### Jenkins credentials
-
-Add two **Secret text** credentials holding the archive URLs. The `Jenkinsfile` passes them as
-`--build-arg UE_ARCHIVE_URL`:
-
-- `unreal_engine_linux_archive_url`
-- `unreal_engine_windows_archive_url`
-
-The URL is consumed only in the `unreal-engine` build stage. It never appears in the final
-image's history.
-
-### Docker hosts
-
-- **Windows:** Windows containers have a 20 GB per-container disk limit by default, but the
-  engine stage needs room for the zip plus the extracted engine. In
-  `C:\ProgramData\docker\config\daemon.json`, set
-  `{ "storage-opts": ["size=200GB"] }`, then restart the Docker service.
-- **Linux:** allow roughly 150 GB of free space for the first build: the zip, the extracted
-  engine, the image layer and the BuildKit cache.
+Extra BuildGraph options can be passed with `--build-arg UE_BUILDGRAPH_EXTRA_ARGS=...`. For
+example, `-set:GameConfigurations=Development;Shipping` skips the DebugGame configuration.
 
 ## Using it from a pipeline
 
 ```sh
-# Linux agent: Linux x64
+# Linux agent: Linux x64 game, Linux dedicated server (-server -noclient), Android / Meta Quest
 "$UE_ROOT/Engine/Build/BatchFiles/RunUAT.sh" BuildCookRun -project="$WORKSPACE/MyGame.uproject" \
   -platform=Linux -clientconfig=Shipping -build -cook -stage -pak -archive \
   -archivedirectory="$WORKSPACE/out" -unattended -utf8output -nop4
-# Linux agent: Android / Meta Quest (Quest uses ASTC textures)
+"$UE_ROOT/Engine/Build/BatchFiles/RunUAT.sh" BuildCookRun -project="$WORKSPACE/MyGame.uproject" \
+  -platform=Linux -server -noclient -serverconfig=Shipping -build -cook -stage -pak -archive \
+  -archivedirectory="$WORKSPACE/out-server" -unattended -utf8output -nop4
 "$UE_ROOT/Engine/Build/BatchFiles/RunUAT.sh" BuildCookRun -project="$WORKSPACE/MyGame.uproject" \
   -platform=Android -cookflavor=ASTC -clientconfig=Shipping -build -cook -stage -pak -package \
-  -archive -archivedirectory="$WORKSPACE/out" -unattended -utf8output -nop4
+  -archive -archivedirectory="$WORKSPACE/out-android" -unattended -utf8output -nop4
 ```
 
 ```bat
-rem Windows agent: Win64 (add -clientarchitecture=arm64 or arm64ec for Windows on ARM)
+rem Windows agent: Win64 (add -clientarchitecture=arm64 or arm64ec for Windows on ARM; -server -noclient for a server)
 "%UE_ROOT%\Engine\Build\BatchFiles\RunUAT.bat" BuildCookRun -project="%WORKSPACE%\MyGame.uproject" ^
   -platform=Win64 -clientconfig=Shipping -build -cook -stage -pak -archive ^
   -archivedirectory="%WORKSPACE%\out" -unattended -utf8output -nop4
 ```
 
 For Meta Quest, enable the **OpenXR** plugin in the project; that is the default for the VR template.
-Meta's own *Meta XR* plugin is optional and project-level: vendor it into the project's
-`Plugins/` folder if you need it.
+Meta's own *Meta XR* plugin is optional and project-level.
 
-## Not supported by the binary engine
+Projects must be built with this engine. The `.uproject`'s `EngineAssociation` doesn't matter
+when you call this engine's `RunUAT` directly. Fab/Marketplace binary plugins built for the
+Launcher release of the same version normally load in a source build of the same release tag.
 
-- **Dedicated servers** (`-server`, Server targets): Epic's binary builds do not contain server
-  binaries ("Server targets are not currently supported from this engine distribution"). You need
-  an installed build made from source (`BuildGraph InstalledEngineBuild.xml
-  -set:WithServer=true`). Build the Linux server on the Linux agent and the Windows server on the
-  Windows agent.
-- **Xbox Series X|S**: you need the GDKX, which Microsoft provides only under NDA through ID@Xbox
-  or a publisher, and Epic's restricted console platform extensions, which require a source
-  engine build. Neither can come from the public Launcher engine. The public GDK installed here
-  covers PC/Store only.
-- **UWP**: Unreal Engine 5 has no UWP target. Store distribution now goes through Win64 plus
-  the Microsoft GDK plug-ins (`.msixvc`), which the Windows agent supports.
+## Not covered
+
+- **Xbox Series X|S** needs two things on top of this source build:
+  - Microsoft's GDKX, which is NDA-only (ID@Xbox or a publisher).
+  - Epic's console platform extensions, which Epic grants separately to approved console
+    developers.
+
+  The extensions are copied into the engine tree before building, after which the Windows engine
+  image can be extended with them.
+- **UWP** is not a UE5 platform. Store distribution goes through Win64 plus the Microsoft GDK
+  plug-ins (`.msixvc`), which the Windows engine and agent support.
