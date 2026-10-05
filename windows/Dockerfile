@@ -1,6 +1,7 @@
 # Engine image built by unreal/windows/Dockerfile (installed UE build compiled from source). It is
-# built separately and only on purpose, because compiling the engine takes many hours.
-ARG UE_ENGINE_IMAGE=localhost:5000/unreal-engine-windows:5.8.3-release
+# built separately and only on purpose, because compiling the engine takes many hours. Pulled
+# through registry.ohmvir.dev (pushes go to localhost:5000, see the Jenkinsfile).
+ARG UE_ENGINE_IMAGE=registry.ohmvir.dev/unreal-engine-windows:5.8.3-release
 
 FROM ${UE_ENGINE_IMAGE} AS unreal-engine
 

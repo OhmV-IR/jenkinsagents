@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
 # Engine image built by unreal/linux/Dockerfile (installed UE build + matching Android SDK). It is
-# built separately and only on purpose, because compiling the engine takes hours.
-ARG UE_ENGINE_IMAGE=localhost:5000/unreal-engine-linux:5.8.3-release
+# built separately and only on purpose, because compiling the engine takes hours. Pulled through
+# registry.ohmvir.dev (pushes go to localhost:5000, see the Jenkinsfile).
+ARG UE_ENGINE_IMAGE=registry.ohmvir.dev/unreal-engine-linux:5.8.3-release
 # Fixed uid/gid of the jenkins user so the engine layers can be copied with --link (see below).
 ARG JENKINS_UID=1001
 

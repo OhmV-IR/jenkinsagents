@@ -7,8 +7,12 @@ Compiling the engine takes hours, so it lives in its own images, which are only 
 
 | Image | Built from | Contents |
 | --- | --- | --- |
-| `localhost:5000/unreal-engine-linux:<tag>` | `unreal/linux/Dockerfile` | `/opt/UnrealEngine`, `/opt/android-sdk` (data-only, `FROM scratch`) |
-| `localhost:5000/unreal-engine-windows:<tag>` | `unreal/windows/Dockerfile` | `C:\UnrealEngine` (on nanoserver) |
+| `unreal-engine-linux:<tag>` | `unreal/linux/Dockerfile` | `/opt/UnrealEngine`, `/opt/android-sdk` (data-only, `FROM scratch`) |
+| `unreal-engine-windows:<tag>` | `unreal/windows/Dockerfile` | `C:\UnrealEngine` (on nanoserver) |
+
+Images are **pushed to `localhost:5000`** and **pulled through `registry.ohmvir.dev`**. The pull
+hostname sits behind Cloudflare, whose 100MB request-body limit rules it out for layer uploads. The
+Jenkinsfile logs in to both with the `docker_server_priv_registry` credential.
 
 The agent images (`linux/`, `windows/`) only copy the engine out of these images. On Linux the copy
 uses `COPY --link`, so the engine layers keep the same digest when anything else in the agent
