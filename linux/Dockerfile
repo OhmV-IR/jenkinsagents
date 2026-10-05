@@ -1,8 +1,11 @@
 # syntax=docker/dockerfile:1
+# Base image built by esp-idf/linux/Dockerfile: cruizba/ubuntu-dind + jenkins user + ESP-IDF (eim).
+# Built separately and only on purpose, so editing this file never re-runs the ESP-IDF install.
+ARG ESP_IDF_IMAGE=localhost:5000/esp-idf-linux:latest
 # Engine image built by unreal/linux/Dockerfile (installed UE build + matching Android SDK). It is
 # built separately and only on purpose, because compiling the engine takes hours.
 ARG UE_ENGINE_IMAGE=localhost:5000/unreal-engine-linux:5.8.3-release
-# Fixed uid/gid of the jenkins user so the engine layers can be copied with --link (see below).
+# uid/gid of the jenkins user (created in the ESP-IDF base image), needed by COPY --link below.
 ARG JENKINS_UID=1001
 
 FROM ${UE_ENGINE_IMAGE} AS unreal-engine
@@ -10,7 +13,7 @@ FROM ${UE_ENGINE_IMAGE} AS unreal-engine
 # ---------------------------------------------------------------------------------------------
 # Stage: final agent image
 # ---------------------------------------------------------------------------------------------
-FROM cruizba/ubuntu-dind:resolute-latest@sha256:04cd04068660769cb917084850f4ef04988c95aa615be83f09fb16a0c2671c08
+FROM ${ESP_IDF_IMAGE}
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -35,12 +38,6 @@ RUN apt update && apt install -y \
     '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-dev libxi-dev libxkbcommon-dev \
     libxkbcommon-x11-dev libegl1-mesa-dev libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
     xdg-utils patchelf libmosquitto-dev
-
-ADD https://github.com/espressif/idf-im-ui/releases/download/v0.12.2/eim-cli-linux-x64.deb eim-cli.deb
-RUN apt install -y ./eim-cli.deb
-RUN rm eim-cli.deb
-RUN apt install -y python3-pip
-RUN mkdir -p /etc/udev/rules.d/ # it tries to install smth here so must create dir to not fail build
 
 RUN apt install -y clang-tidy clang-tools clang-format codespell cppcheck sqlfluff
 
@@ -69,15 +66,14 @@ RUN curl -fsSL https://apt.kitware.com/keys/kitware-archive-latest.asc \
 RUN curl -fsSL "https://github.com/bufbuild/buf/releases/download/v1.30.0/buf-$(uname -s)-$(uname -m)" -o /usr/local/bin/buf
 RUN chmod +x /usr/local/bin/buf
 
+# The jenkins user (and its sudoers entry) comes from the ESP-IDF base image; make sure its ids
+# match what the --chown below assumes.
 ARG JENKINS_UID
-RUN groupadd -g ${JENKINS_UID} jenkins && \
-    useradd -m -u ${JENKINS_UID} -g jenkins -d /home/jenkins -s /bin/bash jenkins && \
-    mkdir -p /home/jenkins/workspace && \
-    chown -R jenkins:jenkins /home/jenkins
+RUN [ "$(id -u jenkins):$(id -g jenkins)" = "${JENKINS_UID}:${JENKINS_UID}" ] || \
+    { echo "ERROR: jenkins is $(id -u jenkins):$(id -g jenkins) in the base image, expected ${JENKINS_UID}:${JENKINS_UID}" >&2; exit 1; }
 
 RUN usermod -aG docker jenkins
 RUN apt install -y util-linux-extra
-RUN echo "jenkins ALL=(ALL) NOPASSWD:ALL" | tee /etc/sudoers.d/jenkins
 
 RUN mkdir -p /cargo
 RUN mkdir -p /rustup
@@ -122,10 +118,6 @@ ENV AGENT_WORKDIR="/home/jenkins"
 
 USER jenkins
 WORKDIR /home/jenkins/workspace
-
-COPY ./eim-config.toml ./eim-config.toml
-RUN eim install --config eim-config.toml --non-interactive true
-RUN eim select v5.1.7
 
 ENV RUSTUP_HOME="/rustup"
 ENV CARGO_HOME="/cargo"

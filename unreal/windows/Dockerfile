@@ -5,6 +5,7 @@
 # (BUILD_UNREAL_ENGINE in the Jenkinsfile).
 #
 #   docker build -m 32g --build-arg GITHUB_TOKEN=... --build-arg UE_GIT_TAG=5.8.3-release ^
+#       --build-arg BUILDTOOLS_IMAGE=localhost:5000/windows-buildtools:latest ^
 #       -t localhost:5000/unreal-engine-windows:5.8.3-release unreal/windows
 #
 # GITHUB_TOKEN must belong to a GitHub account linked to an Epic account (access to EpicGames/UnrealEngine).
@@ -12,6 +13,9 @@
 
 # Git tag of EpicGames/UnrealEngine to build.
 ARG UE_GIT_TAG=5.8.3-release
+# Windows build tools image (windows-buildtools/Dockerfile): VS 2026 Build Tools incl. MSVC 14.50
+# x64/ARM64, Windows SDK 26100, .NET Framework targeting pack, and the public Microsoft GDK.
+ARG BUILDTOOLS_IMAGE=localhost:5000/windows-buildtools:latest
 
 # ---------------------------------------------------------------------------------------------
 # Stage: source. Shallow clone of the tag. Kept separate because the classic Windows builder has
@@ -43,41 +47,12 @@ RUN if (-not $env:GITHUB_TOKEN) { throw 'GITHUB_TOKEN build arg is required (Git
     if ($LASTEXITCODE -ne 0) { throw ('git clone failed with exit code ' + $LASTEXITCODE) }
 
 # ---------------------------------------------------------------------------------------------
-# Stage: builder. Toolchains first (cached across engine versions), then source, deps and build.
+# Stage: builder. Toolchains come from the windows-buildtools base image (MSVC 14.50, since 14.51
+# removed <hash_map> and breaks UE 5.8; the GDK so the MSGameStore / MSGamingRuntime plug-ins
+# compile against it), then source, deps and build.
 # ---------------------------------------------------------------------------------------------
-FROM mcr.microsoft.com/windows/server:ltsc2025 AS builder
+FROM ${BUILDTOOLS_IMAGE} AS builder
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
-
-RUN reg add HKLM\SYSTEM\CurrentControlSet\Control\FileSystem /v LongPathsEnabled /t REG_DWORD /d 1 /f; \
-    New-Item -ItemType Directory -Path C:\TEMP | Out-Null
-
-# VS 2026 Build Tools with what a UE 5.8 source build needs: MSVC 14.50 (UE 5.8's preferred
-# toolset; 14.51 removed <hash_map> and breaks the build) for x64 and ARM64, Windows SDK 26100,
-# and the .NET Framework 4.6.2 targeting pack / 4.8 SDK used by the engine's C# tools.
-COPY .vsconfig C:/TEMP/.vsconfig
-SHELL ["cmd", "/S", "/C"]
-RUN curl -fSL --output C:\TEMP\vs_buildtools.exe https://aka.ms/vs/stable/vs_buildtools.exe \
-    && (C:\TEMP\vs_buildtools.exe --quiet --wait --norestart --nocache \
-        --installPath C:\BuildTools \
-        --config C:\TEMP\.vsconfig \
-        || IF "%ERRORLEVEL%"=="3010" EXIT 0) \
-    && del /q C:\TEMP\vs_buildtools.exe
-SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
-RUN if (-not (Test-Path C:\BuildTools\VC\Tools\MSVC)) { throw 'Build Tools installation failed' }
-
-# Public Microsoft GDK, so the engine's MSGameStore / MSGamingRuntime plug-ins (Microsoft Store
-# packaging, UE5's replacement for UWP) are compiled against it. Same pin as the agent image.
-ARG GDK_URL=https://github.com/microsoft/GDK/releases/download/April-2026-Update-5-v2604.5.7903/GDK_2604.5.7903.zip
-ARG GDK_SHA256=304A4C154C0896DC6C3F66ED237E2360F67E4161F9078A7D10E8C2D8ECED1A8A
-RUN curl.exe -fSL --retry 5 -o C:\TEMP\gdk.zip $env:GDK_URL; \
-    if ($LASTEXITCODE -ne 0) { throw ('GDK download failed, curl exit code ' + $LASTEXITCODE) }; \
-    if ((Get-FileHash C:\TEMP\gdk.zip -Algorithm SHA256).Hash -ne $env:GDK_SHA256) { throw 'GDK archive SHA256 mismatch' }; \
-    New-Item -ItemType Directory -Path C:\TEMP\gdk | Out-Null; \
-    tar.exe -xf C:\TEMP\gdk.zip -C C:\TEMP\gdk; \
-    if ($LASTEXITCODE -ne 0) { throw ('GDK extraction failed, tar exit code ' + $LASTEXITCODE) }; \
-    $p = Start-Process -FilePath C:\TEMP\gdk\PGDK.exe -ArgumentList '/quiet','/norestart','/log','C:\TEMP\gdk-install.log' -Wait -PassThru; \
-    if ($p.ExitCode -notin 0,3010) { Get-Content C:\TEMP\gdk-install*.log -Tail 200 -ErrorAction SilentlyContinue; throw ('GDK install failed with exit code ' + $p.ExitCode) }; \
-    Remove-Item C:\TEMP\gdk, C:\TEMP\gdk.zip, C:\TEMP\gdk-install*.log -Recurse -Force
 
 COPY --from=source C:/UE C:/UE
 

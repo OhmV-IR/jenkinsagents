@@ -10,6 +10,9 @@ Compiling the engine takes hours, so it lives in its own images, which are only 
 | `localhost:5000/unreal-engine-linux:<tag>` | `unreal/linux/Dockerfile` | `/opt/UnrealEngine`, `/opt/android-sdk` (data-only, `FROM scratch`) |
 | `localhost:5000/unreal-engine-windows:<tag>` | `unreal/windows/Dockerfile` | `C:\UnrealEngine` (on nanoserver) |
 
+The Windows engine builder runs on top of `localhost:5000/windows-buildtools:latest`, which must exist
+first. See [images.md](images.md) for how all the images fit together.
+
 The agent images (`linux/`, `windows/`) only copy the engine out of these images. On Linux the copy
 uses `COPY --link`, so the engine layers keep the same digest when anything else in the agent
 changes, and are neither re-pushed nor re-pulled.
@@ -68,7 +71,8 @@ Run the pipeline with `BUILD_UNREAL_ENGINE` checked and the new `UE_GIT_TAG` (fo
 `5.8.4-release`), then change the parameter's default in the `Jenkinsfile`.
 - **Linux:** the downloaded dependency packs are kept in a BuildKit cache mount, so only changed
   packs are fetched.
-- **Windows:** the Visual Studio and GDK layers are reused.
+- **Windows:** the builder stage builds on the `windows-buildtools` image (VS 2026 + GDK, see
+  [images.md](images.md)), so only the source and engine steps run again.
 - If the new version renames an installed-build option, the build stops before compiling and
   names the missing option.
 
