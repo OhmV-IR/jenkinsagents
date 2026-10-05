@@ -5,7 +5,7 @@
 # (BUILD_UNREAL_ENGINE in the Jenkinsfile).
 #
 #   docker build -m 32g --build-arg GITHUB_TOKEN=... --build-arg UE_GIT_TAG=5.8.3-release ^
-#       --build-arg BUILDTOOLS_IMAGE=localhost:5000/windows-buildtools:latest ^
+#       --build-arg BUILDTOOLS_IMAGE=registry.ohmvir.dev/windows-buildtools:latest ^
 #       -t localhost:5000/unreal-engine-windows:5.8.3-release unreal/windows
 #
 # GITHUB_TOKEN must belong to a GitHub account linked to an Epic account (access to EpicGames/UnrealEngine).
@@ -15,7 +15,8 @@
 ARG UE_GIT_TAG=5.8.3-release
 # Windows build tools image (windows-buildtools/Dockerfile): VS 2026 Build Tools incl. MSVC 14.50
 # x64/ARM64, Windows SDK 26100, .NET Framework targeting pack, and the public Microsoft GDK.
-ARG BUILDTOOLS_IMAGE=localhost:5000/windows-buildtools:latest
+# Pulled through registry.ohmvir.dev (pushes go to localhost:5000, see the Jenkinsfile).
+ARG BUILDTOOLS_IMAGE=registry.ohmvir.dev/windows-buildtools:latest
 
 # ---------------------------------------------------------------------------------------------
 # Stage: source. Shallow clone of the tag. Kept separate because the classic Windows builder has

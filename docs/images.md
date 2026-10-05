@@ -24,7 +24,10 @@ cruizba/ubuntu-dind (pinned digest)           mcr.microsoft.com/windows/server:l
 | `unreal-engine-{linux,windows}:<UE_GIT_TAG>` | `unreal/{linux,windows}/` | `BUILD_UNREAL_ENGINE` only, because the build takes hours. See [unreal-engine.md](unreal-engine.md). |
 | `jenkins-agent-*`, `ndind`, `p4-server`, `jenkins-controller` | as before | every pipeline run, as before |
 
-All images are pushed to `localhost:5000`. The agent builds pull their bases from there.
+All images are **pushed to `localhost:5000`** and **pulled through `registry.ohmvir.dev`**: every
+`FROM`/`COPY --from` base and every `--build-arg` image reference uses the pull hostname. That
+hostname sits behind Cloudflare, whose 100MB request-body limit rules it out for layer uploads.
+The Jenkinsfile logs in to both with the `docker_server_priv_registry` credential.
 
 ## Why ESP-IDF and VS are base images, not copied directories
 

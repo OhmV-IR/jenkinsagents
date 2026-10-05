@@ -6,7 +6,8 @@
 #
 # A base image rather than a COPY source: eim writes per-user state and absolute paths that only
 # stay valid if the agent is built on top of this image.
-ARG BUILDTOOLS_IMAGE=localhost:5000/windows-buildtools:latest
+# Pulled through registry.ohmvir.dev (pushes go to localhost:5000, see the Jenkinsfile).
+ARG BUILDTOOLS_IMAGE=registry.ohmvir.dev/windows-buildtools:latest
 FROM ${BUILDTOOLS_IMAGE}
 
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]

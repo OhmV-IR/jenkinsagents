@@ -1,10 +1,11 @@
 # Base image chain, each built separately and only on purpose so editing this file never re-runs
 # their installs: windows/server -> windows-buildtools (choco tools, VS 2026, GDK) -> esp-idf-windows
 # (jenkins user, ESP-IDF) -> this image.
-ARG ESP_IDF_IMAGE=localhost:5000/esp-idf-windows:latest
+ARG ESP_IDF_IMAGE=registry.ohmvir.dev/esp-idf-windows:latest
 # Engine image built by unreal/windows/Dockerfile (installed UE build compiled from source). It is
-# built separately and only on purpose, because compiling the engine takes many hours.
-ARG UE_ENGINE_IMAGE=localhost:5000/unreal-engine-windows:5.8.3-release
+# built separately and only on purpose, because compiling the engine takes many hours. Pulled
+# through registry.ohmvir.dev (pushes go to localhost:5000, see the Jenkinsfile).
+ARG UE_ENGINE_IMAGE=registry.ohmvir.dev/unreal-engine-windows:5.8.3-release
 
 FROM ${UE_ENGINE_IMAGE} AS unreal-engine
 

@@ -1,10 +1,11 @@
 # syntax=docker/dockerfile:1
 # Base image built by esp-idf/linux/Dockerfile: cruizba/ubuntu-dind + jenkins user + ESP-IDF (eim).
 # Built separately and only on purpose, so editing this file never re-runs the ESP-IDF install.
-ARG ESP_IDF_IMAGE=localhost:5000/esp-idf-linux:latest
+# Images are pulled through registry.ohmvir.dev (pushes go to localhost:5000, see the Jenkinsfile).
+ARG ESP_IDF_IMAGE=registry.ohmvir.dev/esp-idf-linux:latest
 # Engine image built by unreal/linux/Dockerfile (installed UE build + matching Android SDK). It is
 # built separately and only on purpose, because compiling the engine takes hours.
-ARG UE_ENGINE_IMAGE=localhost:5000/unreal-engine-linux:5.8.3-release
+ARG UE_ENGINE_IMAGE=registry.ohmvir.dev/unreal-engine-linux:5.8.3-release
 # uid/gid of the jenkins user (created in the ESP-IDF base image), needed by COPY --link below.
 ARG JENKINS_UID=1001
 
