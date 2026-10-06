@@ -1,5 +1,4 @@
-# Windows build tools base image: Chocolatey + basic build tools, VS 2026 Build Tools and the public
-# Microsoft GDK. Base of esp-idf-windows (and so of jenkins-agent-windows) and of the Unreal Engine
+# Windows build tools base image: Chocolatey + basic build tools, VS 2026 Build Tools. Base of esp-idf-windows (and so of jenkins-agent-windows) and of the Unreal Engine
 # builder, so the multi-GB Visual Studio install is never re-run by edits to those Dockerfiles.
 # Only rebuilt on purpose: BUILD_WINDOWS_BUILDTOOLS in the Jenkinsfile, or a change under
 # windows-buildtools/.
@@ -45,19 +44,3 @@ RUN reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execut
 # Verify build tools installation
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
 RUN if (-not (Test-Path 'C:\BuildTools')) { throw 'Build Tools installation failed' }
-
-# Public Microsoft GDK (PC edition). UE 5.8 ships the Microsoft GDK Store/Runtime plug-ins for Win64,
-# which package games as .msixvc for the Microsoft Store / Xbox PC app (UE5's replacement for UWP);
-# packaging needs the GDK tools (makepkg) on the build machine. This is NOT the NDA console GDKX.
-# Pinned to the winget manifest of Microsoft.Gaming.GDK 2604.5.7903.
-ARG GDK_URL=https://github.com/microsoft/GDK/releases/download/April-2026-Update-5-v2604.5.7903/GDK_2604.5.7903.zip
-ARG GDK_SHA256=304A4C154C0896DC6C3F66ED237E2360F67E4161F9078A7D10E8C2D8ECED1A8A
-RUN curl.exe -fSL --retry 5 -o C:\TEMP\gdk.zip $env:GDK_URL; \
-    if ($LASTEXITCODE -ne 0) { throw ('GDK download failed, curl exit code ' + $LASTEXITCODE) }; \
-    if ((Get-FileHash C:\TEMP\gdk.zip -Algorithm SHA256).Hash -ne $env:GDK_SHA256) { throw 'GDK archive SHA256 mismatch' }; \
-    New-Item -ItemType Directory -Path C:\TEMP\gdk | Out-Null; \
-    tar.exe -xf C:\TEMP\gdk.zip -C C:\TEMP\gdk; \
-    if ($LASTEXITCODE -ne 0) { throw ('GDK extraction failed, tar exit code ' + $LASTEXITCODE) }; \
-    $p = Start-Process -FilePath C:\TEMP\gdk\PGDK.exe -ArgumentList '/quiet','/norestart','/log','C:\TEMP\gdk-install.log' -Wait -PassThru; \
-    if ($p.ExitCode -notin 0,3010) { Get-Content C:\TEMP\gdk-install*.log -Tail 200 -ErrorAction SilentlyContinue; throw ('GDK install failed with exit code ' + $p.ExitCode) }; \
-    Remove-Item C:\TEMP\gdk, C:\TEMP\gdk.zip, C:\TEMP\gdk-install*.log -Recurse -Force
