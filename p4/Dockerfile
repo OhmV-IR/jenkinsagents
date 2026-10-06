@@ -12,9 +12,10 @@ ARG P4_SERVER_VERSION=""
 
 # Perforce's apt repository (signing key verified by apt) and the p4-server package, which brings
 # p4d, the p4 CLI, p4dctl and the configure script, and creates the perforce user. One layer, with
-# the apt lists removed in the same step.
+# the apt lists removed in the same step. vim is for editing server config (e.g. the p4dctl files in
+# /etc/perforce) from inside the container.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates curl gnupg procps && \
+    apt-get install -y --no-install-recommends ca-certificates curl gnupg procps vim && \
     curl -fsSL https://package.perforce.com/perforce.pubkey | gpg --dearmor -o /usr/share/keyrings/perforce.gpg && \
     echo "deb [signed-by=/usr/share/keyrings/perforce.gpg] https://package.perforce.com/apt/ubuntu noble release" \
         > /etc/apt/sources.list.d/perforce.list && \
@@ -30,7 +31,8 @@ RUN install -d -o perforce -g perforce -m 0700 /p4root
 ENV P4NAME=p4depot \
     P4PORT=1666 \
     P4ROOT=/p4root \
-    P4USER=p4admin
+    P4USER=p4admin \
+    EDITOR=vim
 
 COPY --chmod=0755 p4d-entrypoint.sh /usr/local/bin/p4d-entrypoint.sh
 
