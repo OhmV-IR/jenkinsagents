@@ -176,6 +176,19 @@ pipeline {
                         }
                     }
                 }
+                stage("Build backrest image"){
+                    agent { label 'docker-linux' }
+                    steps {
+                        checkout scm
+                        withCredentials([usernamePassword(credentialsId: 'docker_server_priv_registry', usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {
+                            sh 'echo "$REG_PASS" | docker login localhost:5000 -u "$REG_USER" --password-stdin'
+                            sh "docker build -t backrest:latest -f backrest/Dockerfile backrest"
+                            sh "docker tag backrest:latest localhost:5000/backrest:latest"
+                            sh "docker push localhost:5000/backrest:latest"
+                            sh 'docker logout localhost:5000'
+                        }
+                    }
+                }
             }
         }
     }
