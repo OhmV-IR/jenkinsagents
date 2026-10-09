@@ -86,11 +86,7 @@ pipeline {
                 stage("Build linux Unreal Engine image"){
                     agent { label 'docker-linux' }
                     options {
-                        throttleJobProperty(
-                            categories: ['RamIntensiveJob'],
-                            throttleEnabled: true,
-                            throttleOption: 'category'
-                        )
+                        throttle(['RamIntensiveJob-OldLaptop'])
                     }
                     steps {
                         checkout scm
@@ -107,11 +103,7 @@ pipeline {
                 stage("Build windows Unreal Engine image"){
                     agent { label 'docker-windows' }
                     options {
-                        throttleJobProperty(
-                            categories: ['RamIntensiveJob'],
-                            throttleEnabled: true,
-                            throttleOption: 'category'
-                        )
+                        throttle(['RamIntensiveJob-OldLaptop'])
                     }
                     steps {
                         checkout scm
