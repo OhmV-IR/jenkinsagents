@@ -85,6 +85,13 @@ pipeline {
             parallel {
                 stage("Build linux Unreal Engine image"){
                     agent { label 'docker-linux' }
+                    options {
+                        throttleJobProperty(
+                            categories: ['RamIntensiveJob'],
+                            throttleEnabled: true,
+                            throttleOption: 'category'
+                        )
+                    }
                     steps {
                         checkout scm
                         // epic_github_token: Secret text, a GitHub token of an account linked to Epic (EpicGames/UnrealEngine access).
@@ -99,6 +106,13 @@ pipeline {
                 }
                 stage("Build windows Unreal Engine image"){
                     agent { label 'docker-windows' }
+                    options {
+                        throttleJobProperty(
+                            categories: ['RamIntensiveJob'],
+                            throttleEnabled: true,
+                            throttleOption: 'category'
+                        )
+                    }
                     steps {
                         checkout scm
                         withCredentials([usernamePassword(credentialsId: 'docker_server_priv_registry', usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS'),
