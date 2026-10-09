@@ -198,4 +198,14 @@ pipeline {
             }
         }
     }
+    post {
+        always {
+            node('docker-linux'){
+                sh 'docker system prune -a -f'
+            }
+            node('docker-windows'){
+                bat 'docker system prune -a -f'
+            }
+        }
+    }
 }
