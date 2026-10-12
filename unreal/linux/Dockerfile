@@ -25,7 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libnss3 libnspr4 libxss1 libxcomposite1 libxdamage1 libsm6 libxv1 libfontconfig1 libfreetype6 \
     libglu1-mesa libvulkan1 libasound2t64 libatk1.0-0t64 libatk-bridge2.0-0t64 libcairo2 \
     libpango-1.0-0 libpangocairo-1.0-0 libxcursor1 libxi6 libxkbcommon-x11-0 libxrandr2 \
-    libxrender1 libxtst6 libx11-xcb1 libgtk-3-0t64 libicu-dev && \
+    libxrender1 libxtst6 libx11-xcb1 libgtk-3-0t64 libicu-dev libdrm2 libgbm1 && \
     rm -rf /var/lib/apt/lists/*
 
 # Android toolchain required by UE 5.8 (NDK r27c, build-tools 35.0.1, platform 35, JDK 21). The
@@ -56,6 +56,8 @@ RUN set -eu; \
         "ndk;27.2.12479018"; \
     rm -rf /root/.android
 
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*
+
 # UnrealEditor refuses to run as root (and the DDC step runs it), so build as the image's
 # unprivileged 'ubuntu' user. File ownership is irrelevant here: the agent re-owns on copy.
 USER ubuntu
@@ -75,11 +77,11 @@ RUN --mount=type=secret,id=github_token,required=true,uid=1000 \
 RUN --mount=type=cache,id=ue-gitdeps,target=/home/ubuntu/.ue-gitdeps,uid=1000,gid=1000,sharing=locked \
     cd UnrealEngine && \
     ./Setup.sh --cache=/home/ubuntu/.ue-gitdeps \
-        --exclude=Win32 --exclude=Win64 --exclude=Mac --exclude=IOS --exclude=TVOS
+        --exclude=Win32 --exclude=Win64 --exclude=Mac
 
 # Extra BuildGraph arguments, e.g. "-set:GameConfigurations=Development;Shipping".
 ARG UE_BUILDGRAPH_EXTRA_ARGS=""
-# Installed build: Linux x64 + Android target platforms, Server targets, editor/template DDC.
+# Installed build: Linux x64 + Android target platforms, Server targets.
 # The output is kept and everything else (source tree, intermediates, NuGet/UBT caches) is deleted
 # in the same step, so the ~200GB of build scratch never becomes part of a layer. *.debug files
 # (split debug info) are dropped too; the *.sym files the engine uses for callstacks are kept.
@@ -91,7 +93,7 @@ RUN set -eu; \
     done; \
     Engine/Build/BatchFiles/RunUAT.sh BuildGraph -script="${xml}" -target="Make Installed Build Linux" \
         -set:BuiltDirectory=/home/ubuntu/LocalBuilds \
-        -set:WithDDC=true \
+        -set:WithDDC=false \
         -set:WithServer=true -set:WithClient=false \
         -set:WithLinux=true -set:WithLinuxArm64=false -set:WithAndroid=true \
         -set:WithWin64=false -set:WithMac=false -set:WithIOS=false -set:WithTVOS=false \
