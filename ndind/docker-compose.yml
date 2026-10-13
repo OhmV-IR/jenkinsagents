@@ -1,0 +1,23 @@
+# Agent without docker-in-docker: runs under the normal container runtime and uses the host's docker
+# daemon through its socket. AGENT_NAME, AGENT_SECRET and DOCKER_GID come from .env (copy example.env).
+services:
+  jenkins-agent:
+    image: registry.ohmvir.dev/jenkins-agent-linux-ndind:latest
+    restart: unless-stopped
+    init: true
+    # Group owning the host's /var/run/docker.sock, so the jenkins user can use it.
+    group_add:
+      - "${DOCKER_GID:?set DOCKER_GID in .env}"
+    # DNS Configuration
+    dns:
+      - 192.168.36.250
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    # Environment Variables
+    environment:
+      JENKINS_URL: "https://jenkins.bgfamily.ca"
+      AGENT_NAME: "${AGENT_NAME:?set AGENT_NAME in .env}"
+      AGENT_SECRET: "${AGENT_SECRET:?set AGENT_SECRET in .env}"
+      AGENT_WORKDIR: "/home/jenkins"

@@ -1,21 +1,21 @@
+# Docker-in-docker agent. Needs the Sysbox runtime on the host (https://github.com/nestybox/sysbox),
+# which lets the inner dockerd run without --privileged.
+# AGENT_NAME and AGENT_SECRET come from .env (copy example.env).
 services:
   jenkins-agent:
-    image: jenkins-agent-linux:latest
+    image: registry.ohmvir.dev/jenkins-agent-linux:latest
     container_name: new-laptop-linux-container
     restart: unless-stopped
-    group_add:
-      - "982"
+    runtime: sysbox-runc
+    init: true
     # DNS Configuration
-    privileged: true
     dns:
       - 192.168.36.250
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
     # Environment Variables
     environment:
       JENKINS_URL: "https://jenkins.bgfamily.ca"
-      AGENT_SECRET: "bea0a7bb95806523be347ea497a38d52ca3034888c7ea87c7bb546ee08fb9247"
-      AGENT_NAME: "new-laptop-linux-container"
-      AGENT_WORKDIR: "/home/jenkins" # Double backslashes to escape properly in YAML
+      AGENT_NAME: "${AGENT_NAME:?set AGENT_NAME in .env}"
+      AGENT_SECRET: "${AGENT_SECRET:?set AGENT_SECRET in .env}"
+      AGENT_WORKDIR: "/home/jenkins"

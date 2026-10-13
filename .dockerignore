@@ -1,0 +1,6 @@
+# The linux and windows agent images build from the repository root (to share esp-idf/), so keep
+# everything they don't COPY out of the context.
+.git
+**/*~
+**/.env
+macos

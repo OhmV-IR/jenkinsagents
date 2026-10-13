@@ -20,7 +20,7 @@ RUN apt-get update && \
     echo "deb [signed-by=/usr/share/keyrings/perforce.gpg] https://package.perforce.com/apt/ubuntu noble release" \
         > /etc/apt/sources.list.d/perforce.list && \
     apt-get update && \
-    apt-get install -y "p4-server${P4_SERVER_VERSION:+=${P4_SERVER_VERSION}}" && \
+    apt-get install -y --no-install-recommends "p4-server${P4_SERVER_VERSION:+=${P4_SERVER_VERSION}}" && \
     command -v p4d && command -v p4 && command -v p4dctl && id perforce && \
     rm -rf /var/lib/apt/lists/*
 

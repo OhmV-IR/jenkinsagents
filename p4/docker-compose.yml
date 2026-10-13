@@ -1,0 +1,28 @@
+# Perforce server. Both volumes must persist: /p4root holds the depot and db, /etc/perforce the p4dctl
+# service definition (the entrypoint refuses to start an empty depot when that definition exists but
+# the data volume is empty). See p4d-entrypoint.sh for the other P4* settings.
+#
+# The super user password is only read on first boot, from p4pass.txt next to this file (git-ignored;
+# compose needs the file to exist on every start, so keep it or replace its content with anything).
+services:
+  p4d:
+    image: registry.ohmvir.dev/p4-server:latest
+    container_name: p4-server
+    restart: unless-stopped
+    ports:
+      - "1666:1666"
+    environment:
+      P4PASS_FILE: /run/secrets/p4pass
+    secrets:
+      - p4pass
+    volumes:
+      - p4root:/p4root
+      - p4conf:/etc/perforce
+
+secrets:
+  p4pass:
+    file: ./p4pass.txt
+
+volumes:
+  p4root:
+  p4conf:

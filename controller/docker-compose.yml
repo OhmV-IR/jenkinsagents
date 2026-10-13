@@ -1,11 +1,10 @@
 services:
   jenkins-controller:
-    image: jenkins/jenkins:lts
+    image: registry.ohmvir.dev/jenkins-controller:latest
     container_name: jenkins-controller
     restart: unless-stopped
     ports:
-      - "8080:8080"   # Jenkins Web UI
-      - "50000:50000" # Inbound Agent port (JNLP/Websocket)
+      - "9090:9090"   # Jenkins Web UI (JENKINS_OPTS --httpPort in controller/Dockerfile); agents connect over WebSocket on this port too
     environment:
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=true
     volumes:

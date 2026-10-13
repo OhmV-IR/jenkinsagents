@@ -10,6 +10,7 @@
 #   P4PORT           port p4d listens on, e.g. 1666 or ssl:1666 (default 1666)
 #   P4ROOT           server root (versioned files + db)      (default /p4root)
 #   P4USER, P4PASS   super user created on first boot; P4PASS is only required then
+#   P4PASS_FILE      file to read P4PASS from instead (e.g. a Docker secret, /run/secrets/...)
 #   P4CASESENSITIVE  1 = case-sensitive server, 0 = case-insensitive (default 1). First boot only:
 #                    a server's case handling cannot be changed after it is created.
 #   P4UNICODE        1 = unicode-mode server (default 0). First boot only.
@@ -76,6 +77,19 @@ write_service_conf() {
 	EOF
 }
 
+# Stop p4d cleanly on `docker stop` (SIGTERM) so the journal and db are left consistent. Installed
+# before the server is created or started, so a stop during startup is handled too (bash runs the
+# trap once the current command, e.g. the configure script, returns).
+stopping=0
+shutdown() {
+	stopping=1
+	log "stopping p4d service '$P4NAME'"
+	p4dctl stop -t p4d "$P4NAME" || true
+	if [ -n "${tail_pid:-}" ]; then kill "$tail_pid" 2>/dev/null || true; fi
+	exit 0
+}
+trap shutdown TERM INT
+
 # The server root must belong to the perforce user that p4dctl runs p4d as. Only the top level is
 # fixed here; p4d itself creates everything below it as perforce.
 mkdir -p "$P4ROOT"
@@ -95,7 +109,11 @@ else
 		die "$SERVICE_CONF exists but $P4ROOT holds no server (no db.counters). Is the data volume mounted?" \
 			"To deliberately start over with an empty depot, delete $SERVICE_CONF first."
 	fi
-	[ -n "${P4PASS:-}" ] || die "P4PASS must be set to create the server (super user '$P4USER' password)"
+	if [ -z "${P4PASS:-}" ] && [ -n "${P4PASS_FILE:-}" ]; then
+		[ -r "$P4PASS_FILE" ] || die "P4PASS_FILE '$P4PASS_FILE' is not readable"
+		P4PASS="$(cat "$P4PASS_FILE")"
+	fi
+	[ -n "${P4PASS:-}" ] || die "P4PASS or P4PASS_FILE must be set to create the server (super user '$P4USER' password)"
 	case "$P4CASESENSITIVE" in
 		1) case_insensitive=0 ;;
 		0) case_insensitive=1 ;;
@@ -131,17 +149,6 @@ for _ in $(seq 1 60); do
 done
 p4d_answers || die "p4d did not start answering on $PROBE_PORT"
 log "p4d '$P4NAME' is up on $P4PORT"
-
-# Stop p4d cleanly on `docker stop` (SIGTERM) so the journal and db are left consistent.
-stopping=0
-shutdown() {
-	stopping=1
-	log "stopping p4d service '$P4NAME'"
-	p4dctl stop -t p4d "$P4NAME" || true
-	if [ -n "${tail_pid:-}" ]; then kill "$tail_pid" 2>/dev/null || true; fi
-	exit 0
-}
-trap shutdown TERM INT
 
 # Mirror the server log to the container log (docker logs) when p4d writes one to P4ROOT.
 tail -n 0 -F "$P4ROOT/log" 2>/dev/null &
