@@ -64,8 +64,8 @@ pipeline {
                                 // without a value reads it from the environment, which keeps it off the command line. Only
                                 // the local ue-builder stage sees it; the pushed image does not (see windows/Dockerfile).
                                 // ue-builder is tagged first so the engine build cache is not dangling and survives the prune.
-                                bat 'docker build -m %WINDOWS_BUILD_MEMORY% --build-arg GITHUB_TOKEN --build-arg UE_GIT_TAGS --target ue-builder -t jenkins-agent-windows-ue-builder:latest -f windows/Dockerfile windows'
-                                bat 'docker build -m %WINDOWS_BUILD_MEMORY% --build-arg GITHUB_TOKEN --build-arg UE_GIT_TAGS -t jenkins-agent-windows:latest -f windows/Dockerfile windows'
+                                bat 'docker build --isolation=process -m %WINDOWS_BUILD_MEMORY% --build-arg GITHUB_TOKEN --build-arg UE_GIT_TAGS --target ue-builder -t jenkins-agent-windows-ue-builder:latest -f windows/Dockerfile windows'
+                                bat 'docker build --isolation=process -m %WINDOWS_BUILD_MEMORY% --build-arg GITHUB_TOKEN --build-arg UE_GIT_TAGS -t jenkins-agent-windows:latest -f windows/Dockerfile windows'
                                 bat "docker tag jenkins-agent-windows:latest localhost:5000/jenkins-agent-windows:latest"
                                 bat "docker push localhost:5000/jenkins-agent-windows:latest"
                             }
