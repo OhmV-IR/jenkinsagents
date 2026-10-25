@@ -1,0 +1,3 @@
+# The build context is this folder; keep the agent credentials out of it.
+.env
+*~

@@ -1,6 +1,6 @@
-# Built from the repository root (shares esp-idf/ with the Linux image):
-#   docker build --build-arg GITHUB_TOKEN --target ue-builder -t jenkins-agent-windows-ue-builder:latest -f windows/Dockerfile .
-#   docker build --build-arg GITHUB_TOKEN -t jenkins-agent-windows:latest -f windows/Dockerfile .
+# Built from this folder:
+#   docker build --build-arg GITHUB_TOKEN --target ue-builder -t jenkins-agent-windows-ue-builder:latest -f windows/Dockerfile windows
+#   docker build --build-arg GITHUB_TOKEN -t jenkins-agent-windows:latest -f windows/Dockerfile windows
 #
 # The Windows (classic) builder has no build secrets, so GITHUB_TOKEN is a build arg, and build arg
 # values are recorded in the history of every later RUN of their stage (`docker history`). Only the
@@ -20,13 +20,14 @@ RUN Set-ExecutionPolicy Bypass -Scope Process -Force; \
     [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; \
     iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 
-# 2. Install basic build dependencies
-RUN choco install -y git cmake ninja curl temurin25 make python312
+# 2. Install git (the engine build clones with it). Only what the engine build needs goes in base, as
+# any change to base rebuilds every engine; the other tools are installed in the final stage.
+RUN choco install -y git
 RUN git config --system core.longpaths true
 
 # 3. Install VS 2026 Build Tools (exit code 3010 = installed, reboot required)
 RUN mkdir C:\TEMP
-COPY windows/.vsconfig C:/TEMP/.vsconfig
+COPY .vsconfig C:/TEMP/.vsconfig
 
 RUN curl.exe -fSL --retry 5 -o C:\TEMP\vs_buildtools.exe https://aka.ms/vs/stable/vs_buildtools.exe; \
     if ($LASTEXITCODE -ne 0) { throw ('vs_buildtools download failed, curl exit code ' + $LASTEXITCODE) }; \
@@ -40,63 +41,137 @@ RUN curl.exe -fSL --retry 5 -o C:\TEMP\vs_buildtools.exe https://aka.ms/vs/stabl
         '--remove', 'Microsoft.VisualStudio.Component.Windows81SDK'); \
     if ($p.ExitCode -notin 0,3010) { throw ('vs_buildtools.exe failed with exit code ' + $p.ExitCode) }; \
     Remove-Item C:\TEMP\vs_buildtools.exe
-RUN reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\rc.exe" /v MitigationOptions /t REG_QWORD /d 2 /f
+# The VS Windows SDK component does not include the SDK's "Debugging Tools for Windows" feature, which is
+# the only thing that ships PDBCopy.exe. The installed build's Win64 strip step needs it
+# ("Unable to find installed PDBCOPY.EXE, which is required to strip symbols"), so install just that
+# feature from the matching standalone SDK installer (10.0.22621.2428).
+RUN curl.exe -fsSL --retry 5 -o C:\TEMP\winsdksetup.exe https://go.microsoft.com/fwlink/?linkid=2250105; \
+    if ($LASTEXITCODE) { throw 'winsdksetup download failed' }; \
+    $p = Start-Process C:\TEMP\winsdksetup.exe -Wait -PassThru -ArgumentList @( \
+        '/features', 'OptionId.WindowsDesktopDebuggers', '/quiet', '/norestart', '/ceip', 'off'); \
+    if ($p.ExitCode -notin 0, 3010) { throw "winsdksetup.exe exited with $($p.ExitCode); see the logs in $env:TEMP" }; \
+    Remove-Item C:\TEMP\winsdksetup.exe; \
+    if (-not (Test-Path 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\PDBCopy.exe')) { throw 'PDBCopy.exe missing after installing Windows SDK debugging tools' }
+RUN New-Item -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\rc.exe' -Force; New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\rc.exe' -Name 'MitigationOptions' -Value 2 -PropertyType QWord -Force
 
-# Builds the engine. Local only: never pushed (see the top of this file).
 FROM base AS ue-builder
-ARG UE_GIT_TAG=5.8.3-release
+ARG UE_GIT_TAGS=5.8.4-release
 ARG GITHUB_TOKEN
-# Extra BuildGraph arguments, e.g. -set:GameConfigurations=Development;Shipping
+# Extra BuildGraph arguments (passed to every engine build), e.g. -set:WithFullDebugInfo=true
 ARG UE_BUILDGRAPH_EXTRA_ARGS=""
-# Installed build: Win64 target platform (plus ARM64 if this engine version has an installed-build
-# option for it), Server targets, no DDC.
+ENV UE_ROOT="C:\UnrealEngine"
+# Installed build of each engine: Win64 target platform (plus ARM64 if that engine version has an
+# installed-build option for it), Development and Shipping game configurations only, with Server and
+# Client targets, no DDC.
 # Clone, Setup.bat and the build run in one step, and everything but the output (source tree with its
-# Setup.bat dependencies, intermediates, local caches) is deleted in that same step, so neither the
-# source nor the build scratch ever becomes part of a layer. The token is sent as a one-off header, so
-# it is not written to .git/config. Setup.bat also installs the engine prerequisites (UEPrereqSetup_x64.exe)
-# into this stage, which the build needs; platforms this host never builds are skipped (Android/Linux live
+# Setup.bat dependencies, intermediates, local caches) is deleted after each engine in that same step,
+# so neither the source nor the build scratch ever becomes part of a layer, and only one engine's
+# scratch exists at a time. The token is sent as a one-off header, so
+# it is not written to .git/config. Platforms this host never builds are skipped (Android/Linux live
 # on the Linux agent). *.pdb files are dropped as the Launcher build does (they are only needed to debug
 # the engine itself).
+# IOS and TVOS dependencies are NOT excluded, even though this host never builds for them:
+# GitDependencies' --exclude=<X> drops every file under any folder named <X>, and AutomationTool always
+# compiles IOS.Automation (plus TVOS.Automation and VisionOS.Automation, which reference it), whose
+# embedded resources (e.g. Engine\Source\Programs\AutomationTool\IOS\Resources\GreenCheck.png) are part
+# of that dependency set. With --exclude=IOS the BuildGraph run dies with MSB3554 before any engine code
+# is built. The extra download is deleted with the rest of the source tree, so the layer does not grow,
+# and WithIOS/WithTVOS stay false, so nothing iOS ends up in the installed build.
+# Setup.bat is not safe to run unattended in a container as shipped: its last command is
+# `UnrealVersionSelector-Win64-Shipping.exe /register`, which opens a modal "Register Unreal Engine file
+# types?" dialog when the .uproject associations are not registered (always the case here). A container
+# has no desktop to answer it on, so the step blocks forever at 0% CPU, right after the "Installing
+# prerequisites..." line. Both that call and the prerequisites installer are commented out of Setup.bat;
+# the prerequisites (UEPrereqSetup_x64.exe) are then installed directly, with a timeout and a logged exit
+# code, and --force stops GitDependencies from asking before it overwrites files.
+# BuildGraph is retried up to 10 times: UBT can race and compile a .cpp before its .ispc.generated.h
+# exists (e.g. DeadBlending.cpp in 5.5), and since the build is incremental a retry gets past it.
+# The error lines of the UBT logs are printed before each retry, as the logs are deleted with the
+# source tree and the console output does not always show which action failed.
+# Before that, UBA's forced retry reruns any single action that fails under UBA once more without UBA
+# (logged as "This action will retry without UBA"), which should get past the race without a full
+# BuildGraph retry. It is set by copying BuildConfiguration.xml into Engine\Saved\UnrealBuildTool of
+# the source tree, so it only applies to the engine build and is deleted with the source.
+# The engine's bundled dotnet leaves processes behind after RunUAT exits (MSBuild nodes, the MSBuild
+# server, the Roslyn compiler server), which keep dotnet.exe and its DLLs locked so rmdir of the source
+# tree fails with "Access is denied". Node reuse and the build servers are turned off, and any process
+# still running out of C:\UE is killed before the source tree is deleted, which is retried until it is gone.
+COPY BuildConfiguration.xml C:/TEMP/BuildConfiguration.xml
+ENV MSBUILDDISABLENODEREUSE=1 DOTNET_CLI_USE_MSBUILD_SERVER=0 UseSharedCompilation=false
 RUN if (-not $env:GITHUB_TOKEN) { throw 'GITHUB_TOKEN build arg is required (GitHub account with access to EpicGames/UnrealEngine)' }; \
+    $tags = @($env:UE_GIT_TAGS -split ' ' | Where-Object { $_ }); \
+    if (-not $tags) { throw 'UE_GIT_TAGS is empty' }; \
     $auth = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes('x-access-token:' + $env:GITHUB_TOKEN)); \
-    & 'C:\Program Files\Git\cmd\git.exe' -c core.longpaths=true -c ('http.extraHeader=Authorization: Basic ' + $auth) \
-        clone --depth 1 --branch $env:UE_GIT_TAG https://github.com/EpicGames/UnrealEngine.git C:\UE; \
-    if ($LASTEXITCODE -ne 0) { throw ('git clone failed with exit code ' + $LASTEXITCODE) }; \
-    Set-Location C:\UE; \
-    & cmd /c Setup.bat --exclude=Android --exclude=Linux --exclude=LinuxArm64 --exclude=Mac --exclude=IOS --exclude=TVOS; \
-    if ($LASTEXITCODE -ne 0) { throw ('Setup.bat failed with exit code ' + $LASTEXITCODE) }; \
-    $xml = Get-Content Engine\Build\InstalledEngineBuild.xml -Raw; \
-    foreach ($opt in 'BuiltDirectory','WithDDC','WithServer','WithClient','WithWin64','WithLinux','WithLinuxArm64','WithAndroid','WithMac','WithIOS','WithTVOS') { \
-        if ($xml -notmatch ('<Option\s+Name=.' + $opt + '.')) { throw ('InstalledEngineBuild.xml in ' + $env:UE_GIT_TAG + ' has no ' + $opt + ' option; update the BuildGraph -set: list') } \
-    }; \
-    $armOptions = @([regex]::Matches($xml, '<Option\s+Name=.(With\w*Win\w*Arm64\w*).') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique); \
-    if ($armOptions) { Write-Host ('Enabling Windows ARM64 options: ' + ($armOptions -join ', ')) } \
-    else { Write-Warning ('No Windows ARM64 installed-build option found for ' + $env:UE_GIT_TAG + ', so the build only contains x64 Win64 binaries. If it is named differently, pass it via UE_BUILDGRAPH_EXTRA_ARGS.') }; \
-    $setArgs = @('-set:BuiltDirectory=C:\LocalBuilds', '-set:WithDDC=false', '-set:WithServer=true', '-set:WithClient=false', \
-        '-set:WithWin64=true', '-set:WithLinux=false', '-set:WithLinuxArm64=false', '-set:WithAndroid=false', \
-        '-set:WithMac=false', '-set:WithIOS=false', '-set:WithTVOS=false') + \
-        @($armOptions | ForEach-Object { '-set:' + $_ + '=true' }) + \
-        @($env:UE_BUILDGRAPH_EXTRA_ARGS -split ' ' | Where-Object { $_ }); \
-    & .\Engine\Build\BatchFiles\RunUAT.bat BuildGraph '-script=Engine/Build/InstalledEngineBuild.xml' '-target=Make Installed Build Win64' @setArgs; \
-    if ($LASTEXITCODE -ne 0) { throw ('BuildGraph failed with exit code ' + $LASTEXITCODE) }; \
-    if (-not (Test-Path C:\LocalBuilds\Windows\Engine\Build\Build.version)) { throw 'Installed build not found in C:\LocalBuilds\Windows' }; \
-    Get-ChildItem C:\LocalBuilds\Windows -Recurse -Filter *.pdb -File | Remove-Item -Force -ErrorAction Continue; \
-    Move-Item C:\LocalBuilds\Windows C:\UnrealEngine; \
-    Set-Location C:\; \
-    cmd /c rmdir /s /q \\?\C:\UE; \
-    Remove-Item C:\LocalBuilds, $env:USERPROFILE\.nuget, $env:LOCALAPPDATA\UnrealEngine, $env:LOCALAPPDATA\UnrealBuildTool -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Path $env:UE_ROOT -Force | Out-Null; \
+    foreach ($tag in $tags) { \
+        $dest = Join-Path $env:UE_ROOT $tag; \
+        Write-Host ('=== Building Unreal Engine ' + $tag + ' into ' + $dest + ' ==='); \
+        if (Test-Path $dest) { throw ($dest + ' already exists (' + $tag + ' listed twice in UE_GIT_TAGS?)') }; \
+        & 'C:\Program Files\Git\cmd\git.exe' -c core.longpaths=true -c ('http.extraHeader=Authorization: Basic ' + $auth) \
+            clone --depth 1 --branch $tag https://github.com/EpicGames/UnrealEngine.git C:\UE; \
+        if ($LASTEXITCODE -ne 0) { throw ('git clone of ' + $tag + ' failed with exit code ' + $LASTEXITCODE) }; \
+        Set-Location C:\UE; \
+        (Get-Content Setup.bat) -replace '^(.*(PrereqSetup|UnrealVersionSelector).*)$', 'rem $1' | Set-Content Setup.bat -Encoding ascii; \
+        & cmd /c Setup.bat --force --exclude=Android --exclude=Linux --exclude=LinuxArm64 --exclude=Mac; \
+        if ($LASTEXITCODE -ne 0) { throw ('Setup.bat failed with exit code ' + $LASTEXITCODE) }; \
+        if (-not (Test-Path C:\UE\Engine\Source\Programs\AutomationTool\IOS\Resources\GreenCheck.png)) { throw 'AutomationTool IOS resources missing after Setup.bat; IOS dependencies must not be excluded' }; \
+        Write-Host 'Installing engine prerequisites (UEPrereqSetup_x64.exe)...'; \
+        $prereq = Start-Process -FilePath C:\UE\Engine\Extras\Redist\en-us\UEPrereqSetup_x64.exe -ArgumentList '/quiet','/norestart' -PassThru; \
+        $null = $prereq.Handle; \
+        if (-not $prereq.WaitForExit(1800000)) { $prereq.Kill(); throw 'UEPrereqSetup_x64.exe was still running after 30 minutes' }; \
+        if ($prereq.ExitCode -notin 0, 3010) { Write-Warning ('UEPrereqSetup_x64.exe exited with ' + $prereq.ExitCode + ' (Setup.bat never checked this exit code either)') }; \
+        $xml = Get-Content Engine\Build\InstalledEngineBuild.xml -Raw; \
+        foreach ($opt in 'BuiltDirectory','WithDDC','WithServer','WithClient','GameConfigurations','WithWin64','WithLinux','WithLinuxArm64','WithAndroid','WithMac','WithIOS','WithTVOS') { \
+            if ($xml -notmatch ('<Option\s+Name=.' + $opt + '.')) { throw ('InstalledEngineBuild.xml in ' + $tag + ' has no ' + $opt + ' option; update the BuildGraph -set: list') } \
+        }; \
+        $armOptions = @([regex]::Matches($xml, '<Option\s+Name=.(With\w*Win\w*Arm64\w*).') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique); \
+        if ($armOptions) { Write-Host ('Enabling Windows ARM64 options: ' + ($armOptions -join ', ')) } \
+        else { Write-Warning ('No Windows ARM64 installed-build option found for ' + $tag + ', so the build only contains x64 Win64 binaries. If it is named differently, pass it via UE_BUILDGRAPH_EXTRA_ARGS.') }; \
+        $setArgs = @('-set:BuiltDirectory=C:\LocalBuilds', '-set:WithDDC=false', '-set:WithServer=true', '-set:WithClient=true', \
+            '-set:GameConfigurations=Development;Shipping', \
+            '-set:WithWin64=true', '-set:WithLinux=false', '-set:WithLinuxArm64=false', '-set:WithAndroid=false', \
+            '-set:WithMac=false', '-set:WithIOS=false', '-set:WithTVOS=false') + \
+            @($armOptions | ForEach-Object { '-set:' + $_ + '=true' }) + \
+            @($env:UE_BUILDGRAPH_EXTRA_ARGS -split ' ' | Where-Object { $_ }); \
+        New-Item -ItemType Directory -Path Engine\Saved\UnrealBuildTool -Force | Out-Null; \
+        Copy-Item C:\TEMP\BuildConfiguration.xml Engine\Saved\UnrealBuildTool\BuildConfiguration.xml; \
+        for ($attempt = 1; ; $attempt++) { \
+            & .\Engine\Build\BatchFiles\RunUAT.bat BuildGraph '-script=Engine/Build/InstalledEngineBuild.xml' '-target=Make Installed Build Win64' @setArgs; \
+            $rc = $LASTEXITCODE; \
+            if ($rc -eq 0) { break }; \
+            Get-ChildItem C:\UE\Engine\Programs\AutomationTool\Saved\Logs -Filter *.txt -ErrorAction SilentlyContinue | \
+                Select-String -Pattern ': (fatal )?error' | Select-Object -First 50 | ForEach-Object { Write-Host ($_.Filename + ': ' + $_.Line) }; \
+            if ($attempt -ge 10) { throw ('BuildGraph of ' + $tag + ' failed after ' + $attempt + ' attempts (last exit code ' + $rc + ')') }; \
+            Write-Host ('=== BuildGraph of ' + $tag + ' failed with exit code ' + $rc + ', retrying (attempt ' + ($attempt + 1) + '/10) ==='); \
+        }; \
+        if (-not (Test-Path C:\LocalBuilds\Windows\Engine\Build\Build.version)) { throw 'Installed build not found in C:\LocalBuilds\Windows' }; \
+        Get-ChildItem C:\LocalBuilds\Windows -Recurse -Filter *.pdb -File | Remove-Item -Force -ErrorAction Continue; \
+        Move-Item C:\LocalBuilds\Windows $dest; \
+        Set-Location C:\; \
+        for ($attempt = 1; Test-Path C:\UE; $attempt++) { \
+            Get-Process | Where-Object { $_.Path -like 'C:\UE\*' } | ForEach-Object { Write-Host ('Stopping ' + $_.Path + ' (PID ' + $_.Id + ')'); $_.Kill(); $_.WaitForExit(30000) | Out-Null }; \
+            cmd /c rmdir /s /q \\?\C:\UE; \
+            if (-not (Test-Path C:\UE)) { break }; \
+            if ($attempt -ge 5) { throw ('Could not delete C:\UE after building ' + $tag) }; \
+            Start-Sleep -Seconds 10; \
+        }; \
+        Remove-Item C:\LocalBuilds, $env:USERPROFILE\.nuget, $env:LOCALAPPDATA\UnrealEngine, $env:LOCALAPPDATA\UnrealBuildTool -Recurse -Force -ErrorAction SilentlyContinue; \
+    }
 
-# The agent image.
 FROM base
 
 COPY --from=ue-builder /UnrealEngine C:/UnrealEngine
 ENV UE_ROOT="C:\UnrealEngine"
+# Each engine version ships its own prerequisites installer, so run every one of them.
+RUN foreach ($engine in Get-ChildItem $env:UE_ROOT -Directory) { \
+        Write-Host ('Installing prerequisites of Unreal Engine ' + $engine.Name); \
+        $p = Start-Process -FilePath (Join-Path $engine.FullName 'Engine\Extras\Redist\en-us\UEPrereqSetup_x64.exe') -ArgumentList '/quiet','/norestart' -Wait -PassThru; \
+        if ($p.ExitCode -notin 0,3010) { throw ('UEPrereqSetup_x64.exe of ' + $engine.Name + ' failed with exit code ' + $p.ExitCode) } \
+    }
 
-# Engine prerequisites (VC++ and DirectX redistributables), needed by UnrealEditor-Cmd when cooking.
-# Setup.bat installed them in ue-builder, but this stage starts from base, so they are installed again
-# here from the installed build's copy of the installer.
-RUN $p = Start-Process -FilePath C:\UnrealEngine\Engine\Extras\Redist\en-us\UEPrereqSetup_x64.exe -ArgumentList '/quiet','/norestart' -Wait -PassThru; \
-    if ($p.ExitCode -notin 0,3010) { throw ('UEPrereqSetup_x64.exe failed with exit code ' + $p.ExitCode) }
+# Everything below is not needed by the engine build, so changing it does not rebuild the engines.
+# Basic build dependencies of the agent's jobs; temurin25 is the JDK the agent runs on.
+RUN choco install -y cmake ninja curl temurin25 make python312 wget 7zip.install
 
 # Setup Jenkins User
 RUN net user jenkins /add /passwordreq:no; \
@@ -155,7 +230,7 @@ RUN rustup component add rustfmt clippy
 RUN cargo install protoc-gen-prost
 
 # In C:\TEMP rather than the agent's work directory (C:\Users\jenkins).
-COPY esp-idf/eim-config.toml C:/TEMP/eim-config.toml
+COPY eim-config.toml C:/TEMP/eim-config.toml
 RUN eim install --config C:\TEMP\eim-config.toml --non-interactive true
 RUN eim select v5.1.7
 
@@ -164,5 +239,5 @@ ENV DOTNET_CLI_TELEMETRY_OPTOUT="true"
 ENV DOTNET_NOLOGO="true"
 
 # Outside C:\Users\jenkins (AGENT_WORKDIR), so a volume mounted there cannot hide it.
-COPY windows/jenkins-agent-entrypoint.ps1 C:/ProgramData/Jenkins/jenkins-agent-entrypoint.ps1
+COPY jenkins-agent-entrypoint.ps1 C:/ProgramData/Jenkins/jenkins-agent-entrypoint.ps1
 ENTRYPOINT ["powershell", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\ProgramData\\Jenkins\\jenkins-agent-entrypoint.ps1"]

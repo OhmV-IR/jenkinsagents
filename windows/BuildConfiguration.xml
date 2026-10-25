@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Configuration xmlns="https://www.unrealengine.com/BuildConfiguration">
+  <UnrealBuildAccelerator>
+    <!-- Retry an action that fails under UBA once more without UBA (works around UBT racing a .cpp compile ahead of its .ispc.generated.h) -->
+    <bForcedRetry>true</bForcedRetry>
+  </UnrealBuildAccelerator>
+</Configuration>

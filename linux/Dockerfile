@@ -1,18 +1,18 @@
 # syntax=docker/dockerfile:1
-# Built from the repository root (shares esp-idf/ with the Windows image):
-#   docker build --secret id=github_token,env=GITHUB_TOKEN -f linux/Dockerfile .
+# Built from this folder:
+#   docker build --secret id=github_token,env=GITHUB_TOKEN -f linux/Dockerfile linux
 FROM cruizba/ubuntu-dind:resolute-latest@sha256:04cd04068660769cb917084850f4ef04988c95aa615be83f09fb16a0c2671c08
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Never install recommended/suggested packages, including in apt-get calls made by tools at build time
-# (e.g. eim installing prerequisites).
 RUN printf 'APT::Install-Recommends "false";\nAPT::Install-Suggests "false";\n' > /etc/apt/apt.conf.d/99no-recommends && \
-    apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg lsb-release git sudo && \
+    apt-get update && apt-get install -y --no-install-recommends ca-certificates curl git sudo && \
     rm -rf /var/lib/apt/lists/*
 
+# Only what the engine build (and the Android SDK it uses) needs goes above the engine build; any change
+# up here rebuilds every engine.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl git unzip python3 xdg-user-dirs xdg-utils shared-mime-info \
+    unzip python3 xdg-user-dirs xdg-utils shared-mime-info \
     openjdk-21-jdk-headless \
     libnss3 libnspr4 libxss1 libxcomposite1 libxdamage1 libsm6 libxv1 libfontconfig1 libfreetype6 \
     libglu1-mesa libvulkan1 libasound2t64 libatk1.0-0t64 libatk-bridge2.0-0t64 libcairo2 \
@@ -20,13 +20,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrender1 libxtst6 libx11-xcb1 libgtk-3-0t64 libicu-dev libdrm2 libgbm1 && \
     rm -rf /var/lib/apt/lists/*
 
-# jenkins user with passwordless sudo: the entrypoint starts the inner dockerd with sudo, and eim may
-# `sudo apt-get install` prerequisites it finds missing. sudo itself is installed in the first layer.
-# Created this early so the toolchains below can be owned by jenkins in the layer that installs them
-# (a later chown -R would store a second copy of every file). /opt/UnrealEngine holds the engine
-# outside the agent's work directory (/home/jenkins), so a volume mounted there cannot hide it.
 ARG UID=1001
 ARG GID=1001
+# In the docker group so it can use the inner dockerd's socket (root:docker 0660) without sudo.
 RUN test -x /usr/bin/sudo && \
     groupadd -g ${GID} jenkins && \
     useradd -m -u ${UID} -g ${GID} -s /bin/bash jenkins && \
@@ -66,53 +62,78 @@ RUN set -eu; \
     rm -rf /root/.android; \
     chown -R jenkins:jenkins "${ANDROID_HOME}"
 
+# The engine build needs build-essential.
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*
 
 USER jenkins
 WORKDIR /home/jenkins
-
-ARG UE_GIT_TAG=5.8.3-release
-# Extra BuildGraph arguments, e.g. "-set:GameConfigurations=Development;Shipping".
+ARG UE_GIT_TAGS=5.8.4-release
+# Extra BuildGraph arguments, e.g. "-set:WithFullDebugInfo=true".
 ARG UE_BUILDGRAPH_EXTRA_ARGS=""
-# Installed build: Linux x64 + Android target platforms, Server targets.
+ENV UE_ROOT=/opt/UnrealEngine
+# Installed build of each engine: Linux x64 + Android target platforms, Development and Shipping game
+# configurations only, with Server and Client targets, no DDC.
 # Clone, Setup.sh and the build run in one step, and everything but the output (source tree with its
-# Setup.sh dependencies, intermediates, NuGet/UBT caches) is deleted in that same step, so neither the
-# source nor the ~200GB of build scratch ever becomes part of a layer. *.debug files (split debug info)
-# are dropped too; the *.sym files the engine uses for callstacks are kept.
+# Setup.sh dependencies, intermediates, NuGet/UBT caches) is deleted after each engine in that same
+# step, so neither the source nor the ~200GB of build scratch ever becomes part of a layer, and only one
+# engine's scratch exists at a time. *.debug files (split debug info) are dropped too; the *.sym files
+# the engine uses for callstacks are kept.
+# BuildGraph is retried up to 10 times: UBT can race and compile a .cpp before its .ispc.generated.h
+# exists (e.g. DeadBlending.cpp in 5.5), and since the build is incremental a retry gets past it.
+# Before that, UBA's forced retry reruns any single action that fails under UBA once more without UBA
+# (logged as "This action will retry without UBA"), which should get past the race without a full
+# BuildGraph retry. It is set by copying BuildConfiguration.xml into Engine/Saved/UnrealBuildTool of
+# the source tree, so it only applies to the engine build and is deleted with the source.
+COPY BuildConfiguration.xml /home/jenkins/ue-BuildConfiguration.xml
 RUN --mount=type=secret,id=github_token,required=true,uid=${UID} \
     --mount=type=cache,id=ue-gitdeps,target=/home/jenkins/.ue-gitdeps,uid=${UID},gid=${GID},sharing=locked \
     set -eu; \
+    [ -n "$(echo ${UE_GIT_TAGS})" ] || { echo "ERROR: UE_GIT_TAGS is empty" >&2; exit 1; }; \
     auth="$(printf 'x-access-token:%s' "$(cat /run/secrets/github_token)" | base64 -w0)"; \
-    git -c http.extraHeader="Authorization: Basic ${auth}" \
-        clone --depth 1 --branch "${UE_GIT_TAG}" https://github.com/EpicGames/UnrealEngine.git UnrealEngine-src; \
-    cd UnrealEngine-src; \
-    ./Setup.sh --cache=/home/jenkins/.ue-gitdeps \
-        --exclude=Win32 --exclude=Win64 --exclude=Mac; \
-    xml=Engine/Build/InstalledEngineBuild.xml; \
-    for opt in BuiltDirectory WithDDC WithServer WithClient WithLinux WithLinuxArm64 WithAndroid WithWin64 WithMac WithIOS WithTVOS; do \
-        grep -q "Name=\"${opt}\"" "${xml}" || { echo "ERROR: ${xml} in ${UE_GIT_TAG} has no '${opt}' option; update the BuildGraph -set: list" >&2; exit 1; }; \
-    done; \
-    Engine/Build/BatchFiles/RunUAT.sh BuildGraph -script="${xml}" -target="Make Installed Build Linux" \
-        -set:BuiltDirectory=/home/jenkins/LocalBuilds \
-        -set:WithDDC=false \
-        -set:WithServer=true -set:WithClient=false \
-        -set:WithLinux=true -set:WithLinuxArm64=false -set:WithAndroid=true \
-        -set:WithWin64=false -set:WithMac=false -set:WithIOS=false -set:WithTVOS=false \
-        ${UE_BUILDGRAPH_EXTRA_ARGS}; \
-    test -f /home/jenkins/LocalBuilds/Linux/Engine/Build/Build.version; \
-    find /home/jenkins/LocalBuilds/Linux -name '*.debug' -type f -delete; \
-    mv /home/jenkins/LocalBuilds/Linux "/opt/UnrealEngine/${UE_GIT_TAG}"; \
-    cd /home/jenkins; \
-    rm -rf UnrealEngine-src LocalBuilds .nuget .config/Epic .local/share/Epic
-ENV UE_ROOT=/opt/UnrealEngine/${UE_GIT_TAG}
+    for tag in ${UE_GIT_TAGS}; do \
+        echo "=== Building Unreal Engine ${tag} into ${UE_ROOT}/${tag} ==="; \
+        [ ! -e "${UE_ROOT}/${tag}" ] || { echo "ERROR: ${UE_ROOT}/${tag} already exists (${tag} listed twice in UE_GIT_TAGS?)" >&2; exit 1; }; \
+        cd /home/jenkins; \
+        git -c http.extraHeader="Authorization: Basic ${auth}" \
+            clone --depth 1 --branch "${tag}" https://github.com/EpicGames/UnrealEngine.git UnrealEngine-src; \
+        cd UnrealEngine-src; \
+        ./Setup.sh --cache=/home/jenkins/.ue-gitdeps \
+            --exclude=Win32 --exclude=Win64 --exclude=Mac; \
+        xml=Engine/Build/InstalledEngineBuild.xml; \
+        for opt in BuiltDirectory WithDDC WithServer WithClient GameConfigurations WithLinux WithLinuxArm64 WithAndroid WithWin64 WithMac WithIOS WithTVOS; do \
+            grep -q "Name=\"${opt}\"" "${xml}" || { echo "ERROR: ${xml} in ${tag} has no '${opt}' option; update the BuildGraph -set: list" >&2; exit 1; }; \
+        done; \
+        mkdir -p Engine/Saved/UnrealBuildTool; \
+        cp /home/jenkins/ue-BuildConfiguration.xml Engine/Saved/UnrealBuildTool/BuildConfiguration.xml; \
+        attempt=1; \
+        until Engine/Build/BatchFiles/RunUAT.sh BuildGraph -script="${xml}" -target="Make Installed Build Linux" \
+            -set:BuiltDirectory=/home/jenkins/LocalBuilds \
+            -set:WithDDC=false \
+            -set:WithServer=true -set:WithClient=true \
+            -set:GameConfigurations='Development;Shipping' \
+            -set:WithLinux=true -set:WithLinuxArm64=false -set:WithAndroid=true \
+            -set:WithWin64=false -set:WithMac=false -set:WithIOS=false -set:WithTVOS=false \
+            ${UE_BUILDGRAPH_EXTRA_ARGS}; do \
+            [ "${attempt}" -lt 10 ] || { echo "ERROR: BuildGraph of ${tag} failed after ${attempt} attempts" >&2; exit 1; }; \
+            attempt=$((attempt + 1)); \
+            echo "=== BuildGraph of ${tag} failed, retrying (attempt ${attempt}/10) ==="; \
+        done; \
+        test -f /home/jenkins/LocalBuilds/Linux/Engine/Build/Build.version; \
+        find /home/jenkins/LocalBuilds/Linux -name '*.debug' -type f -delete; \
+        mv /home/jenkins/LocalBuilds/Linux "${UE_ROOT}/${tag}"; \
+        cd /home/jenkins; \
+        rm -rf UnrealEngine-src LocalBuilds .nuget .config/Epic .local/share/Epic; \
+    done
 
 USER root
 
+# Everything below is not needed by the engine build, so changing it does not rebuild the engines.
+
 # Install extra dependencies and other tools for vcpkg .etc
-# java/javac on PATH are pinned to JDK 21 so they match JAVA_HOME.
+# JDK 25 is the agent's JVM (AGENT_JAVA); java/javac on PATH are pinned to JDK 21 so they match JAVA_HOME.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    openssh-client ninja-build fontconfig \
-    zip unzip tar autoconf autoconf-archive automake libtool \
+    gnupg lsb-release wget openssh-client ninja-build fontconfig \
+    zip tar autoconf autoconf-archive automake libtool \
     linux-libc-dev pkg-config software-properties-common \
     nasm bison flex \
     libx11-dev libxext-dev libxrender-dev libxtst-dev libxrandr-dev \
@@ -122,12 +143,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl-dev libbz2-dev liblzma-dev libudev-dev libdrm-dev \
     libglfw3-dev libgtk-3-dev \
     libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
-    libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
     libx11-xcb-dev libxkbcommon-x11-dev libegl1-mesa-dev \
-    python3 python3-venv openjdk-21-jdk openjdk-25-jdk openjdk-17-jdk \
+    python3-venv openjdk-21-jdk openjdk-25-jdk openjdk-17-jdk \
     '^libxcb.*-dev' \
     libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
-    xdg-utils patchelf libmosquitto-dev && \
+    patchelf libmosquitto-dev && \
     update-alternatives --set java /usr/lib/jvm/java-21-openjdk-amd64/bin/java && \
     update-alternatives --set javac /usr/lib/jvm/java-21-openjdk-amd64/bin/javac && \
     rm -rf /var/lib/apt/lists/*
@@ -136,7 +156,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # `sudo apt-get install` anything it finds missing.
 ARG EIM_VERSION=0.12.2
 ARG EIM_DEB_SHA256=15efb2ddf24cdcc3dfd766fa0cf0b53656137a2dd0f85117c22dbe50afdb1bd1
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl sudo python3-pip python3-venv && \
+RUN apt-get update && apt-get install -y --no-install-recommends python3-pip && \
     curl -fsSL -o /tmp/eim-cli.deb \
         "https://github.com/espressif/idf-im-ui/releases/download/v${EIM_VERSION}/eim-cli-linux-x64.deb" && \
     echo "${EIM_DEB_SHA256}  /tmp/eim-cli.deb" | sha256sum -c - && \
@@ -148,7 +168,7 @@ USER jenkins
 WORKDIR /home/jenkins
 
 # The config is bind-mounted for this step only, so it never lands in a layer or the agent's directories.
-RUN --mount=type=bind,source=esp-idf/eim-config.toml,target=/tmp/eim-config.toml \
+RUN --mount=type=bind,source=eim-config.toml,target=/tmp/eim-config.toml \
     eim install --config /tmp/eim-config.toml --non-interactive true
 RUN eim select v5.1.7
 
@@ -242,7 +262,7 @@ ENV DOTNET_CLI_TELEMETRY_OPTOUT="true"
 ENV DOTNET_NOLOGO="true"
 
 # Outside /home/jenkins (AGENT_WORKDIR), so a volume mounted there cannot hide it.
-COPY --chmod=0755 linux/jenkins-agent-entrypoint.sh /usr/local/bin/jenkins-agent-entrypoint.sh
+COPY --chmod=0755 jenkins-agent-entrypoint.sh /usr/local/bin/jenkins-agent-entrypoint.sh
 
 USER jenkins
 WORKDIR /home/jenkins
