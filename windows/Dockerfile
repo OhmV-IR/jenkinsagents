@@ -91,11 +91,8 @@ WORKDIR C:\\Users\\jenkins
 # Install rust: latest rustup-init, verified against the checksum rustup publishes next to it.
 # The installer is downloaded and deleted in the same step, so it does not stay in a layer.
 RUN $base = 'https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc'; \
-    curl.exe -fSL --retry 5 -o C:\TEMP\rustup-init.exe ($base + '/rustup-init.exe'); \
-    if ($LASTEXITCODE -ne 0) { throw ('rustup-init.exe download failed, curl exit code ' + $LASTEXITCODE) }; \
-    $sha256 = curl.exe -fsSL --retry 5 ($base + '/rustup-init.exe.sha256'); \
-    if ($LASTEXITCODE -ne 0) { throw ('rustup-init.exe.sha256 download failed, curl exit code ' + $LASTEXITCODE) }; \
-    $expected = (($sha256 -join ' ').Trim() -split '\s+')[0]; \
+    Invoke-WebRequest -UseBasicParsing -Uri ($base + '/rustup-init.exe') -OutFile C:\TEMP\rustup-init.exe; \
+    $expected = (Invoke-WebRequest -UseBasicParsing -Uri ($base + '/rustup-init.exe.sha256')).Content.Trim().Split()[0]; \
     if ((Get-FileHash C:\TEMP\rustup-init.exe -Algorithm SHA256).Hash -ne $expected) { throw 'rustup-init.exe SHA256 mismatch' }; \
     C:\TEMP\rustup-init.exe -y --default-toolchain stable --profile minimal --quiet; \
     if ($LASTEXITCODE -ne 0) { throw ('rustup-init failed with exit code ' + $LASTEXITCODE) }; \
