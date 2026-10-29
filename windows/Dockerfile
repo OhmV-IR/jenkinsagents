@@ -45,14 +45,7 @@ RUN curl.exe -fsSL --retry 5 -o C:\TEMP\winsdksetup.exe https://go.microsoft.com
 RUN New-Item -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\rc.exe' -Force; New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\rc.exe' -Name 'MitigationOptions' -Value 2 -PropertyType QWord -Force
 
 ENV UE_ROOT="C:\UnrealEngine"
-# Each engine version ships its own prerequisites installer, so run every one of them.
-RUN foreach ($engine in Get-ChildItem $env:UE_ROOT -Directory) { \
-        Write-Host ('Installing prerequisites of Unreal Engine ' + $engine.Name); \
-        $p = Start-Process -FilePath (Join-Path $engine.FullName 'Engine\Extras\Redist\en-us\UEPrereqSetup_x64.exe') -ArgumentList '/quiet','/norestart' -Wait -PassThru; \
-        if ($p.ExitCode -notin 0,3010) { throw ('UEPrereqSetup_x64.exe of ' + $engine.Name + ' failed with exit code ' + $p.ExitCode) } \
-    }
 
-# Everything below is not needed by the engine build, so changing it does not rebuild the engines.
 # Basic build dependencies of the agent's jobs; temurin25 is the JDK the agent runs on.
 RUN choco install -y cmake ninja curl temurin25 make python312 wget 7zip.install
 
