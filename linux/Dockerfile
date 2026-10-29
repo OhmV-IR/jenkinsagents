@@ -9,8 +9,6 @@ RUN printf 'APT::Install-Recommends "false";\nAPT::Install-Suggests "false";\n' 
     apt-get update && apt-get install -y --no-install-recommends ca-certificates curl git sudo && \
     rm -rf /var/lib/apt/lists/*
 
-# Only what the engine build (and the Android SDK it uses) needs goes above the engine build; any change
-# up here rebuilds every engine.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     unzip python3 xdg-user-dirs xdg-utils shared-mime-info \
     openjdk-21-jdk-headless \
@@ -62,72 +60,7 @@ RUN set -eu; \
     rm -rf /root/.android; \
     chown -R jenkins:jenkins "${ANDROID_HOME}"
 
-# The engine build needs build-essential.
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*
-
-USER jenkins
-WORKDIR /home/jenkins
-ARG UE_GIT_TAGS=5.8.4-release
-# Extra BuildGraph arguments, e.g. "-set:WithFullDebugInfo=true".
-ARG UE_BUILDGRAPH_EXTRA_ARGS=""
-ENV UE_ROOT=/opt/UnrealEngine
-# Installed build of each engine: Linux x64 + Android target platforms, Development and Shipping game
-# configurations only, with Server and Client targets, no DDC.
-# Clone, Setup.sh and the build run in one step, and everything but the output (source tree with its
-# Setup.sh dependencies, intermediates, NuGet/UBT caches) is deleted after each engine in that same
-# step, so neither the source nor the ~200GB of build scratch ever becomes part of a layer, and only one
-# engine's scratch exists at a time. *.debug files (split debug info) are dropped too; the *.sym files
-# the engine uses for callstacks are kept.
-# BuildGraph is retried up to 10 times: UBT can race and compile a .cpp before its .ispc.generated.h
-# exists (e.g. DeadBlending.cpp in 5.5), and since the build is incremental a retry gets past it.
-# Before that, UBA's forced retry reruns any single action that fails under UBA once more without UBA
-# (logged as "This action will retry without UBA"), which should get past the race without a full
-# BuildGraph retry. It is set by copying BuildConfiguration.xml into Engine/Saved/UnrealBuildTool of
-# the source tree, so it only applies to the engine build and is deleted with the source.
-COPY BuildConfiguration.xml /home/jenkins/ue-BuildConfiguration.xml
-RUN --mount=type=secret,id=github_token,required=true,uid=${UID} \
-    --mount=type=cache,id=ue-gitdeps,target=/home/jenkins/.ue-gitdeps,uid=${UID},gid=${GID},sharing=locked \
-    set -eu; \
-    [ -n "$(echo ${UE_GIT_TAGS})" ] || { echo "ERROR: UE_GIT_TAGS is empty" >&2; exit 1; }; \
-    auth="$(printf 'x-access-token:%s' "$(cat /run/secrets/github_token)" | base64 -w0)"; \
-    for tag in ${UE_GIT_TAGS}; do \
-        echo "=== Building Unreal Engine ${tag} into ${UE_ROOT}/${tag} ==="; \
-        [ ! -e "${UE_ROOT}/${tag}" ] || { echo "ERROR: ${UE_ROOT}/${tag} already exists (${tag} listed twice in UE_GIT_TAGS?)" >&2; exit 1; }; \
-        cd /home/jenkins; \
-        git -c http.extraHeader="Authorization: Basic ${auth}" \
-            clone --depth 1 --branch "${tag}" https://github.com/EpicGames/UnrealEngine.git UnrealEngine-src; \
-        cd UnrealEngine-src; \
-        ./Setup.sh --cache=/home/jenkins/.ue-gitdeps \
-            --exclude=Win32 --exclude=Win64 --exclude=Mac; \
-        xml=Engine/Build/InstalledEngineBuild.xml; \
-        for opt in BuiltDirectory WithDDC WithServer WithClient GameConfigurations WithLinux WithLinuxArm64 WithAndroid WithWin64 WithMac WithIOS WithTVOS; do \
-            grep -q "Name=\"${opt}\"" "${xml}" || { echo "ERROR: ${xml} in ${tag} has no '${opt}' option; update the BuildGraph -set: list" >&2; exit 1; }; \
-        done; \
-        mkdir -p Engine/Saved/UnrealBuildTool; \
-        cp /home/jenkins/ue-BuildConfiguration.xml Engine/Saved/UnrealBuildTool/BuildConfiguration.xml; \
-        attempt=1; \
-        until Engine/Build/BatchFiles/RunUAT.sh BuildGraph -script="${xml}" -target="Make Installed Build Linux" \
-            -set:BuiltDirectory=/home/jenkins/LocalBuilds \
-            -set:WithDDC=false \
-            -set:WithServer=true -set:WithClient=true \
-            -set:GameConfigurations='Development;Shipping' \
-            -set:WithLinux=true -set:WithLinuxArm64=false -set:WithAndroid=true \
-            -set:WithWin64=false -set:WithMac=false -set:WithIOS=false -set:WithTVOS=false \
-            ${UE_BUILDGRAPH_EXTRA_ARGS}; do \
-            [ "${attempt}" -lt 10 ] || { echo "ERROR: BuildGraph of ${tag} failed after ${attempt} attempts" >&2; exit 1; }; \
-            attempt=$((attempt + 1)); \
-            echo "=== BuildGraph of ${tag} failed, retrying (attempt ${attempt}/10) ==="; \
-        done; \
-        test -f /home/jenkins/LocalBuilds/Linux/Engine/Build/Build.version; \
-        find /home/jenkins/LocalBuilds/Linux -name '*.debug' -type f -delete; \
-        mv /home/jenkins/LocalBuilds/Linux "${UE_ROOT}/${tag}"; \
-        cd /home/jenkins; \
-        rm -rf UnrealEngine-src LocalBuilds .nuget .config/Epic .local/share/Epic; \
-    done
-
-USER root
-
-# Everything below is not needed by the engine build, so changing it does not rebuild the engines.
 
 # Install extra dependencies and other tools for vcpkg .etc
 # JDK 25 is the agent's JVM (AGENT_JAVA); java/javac on PATH are pinned to JDK 21 so they match JAVA_HOME.

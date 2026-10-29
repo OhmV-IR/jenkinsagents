@@ -3,6 +3,29 @@
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
+Write-Host "Installing UE Prerequisites"
+
+foreach ($engine in Get-ChildItem $env:UE_ROOT -Directory) {
+    $prereqPath = Join-Path $engine.FullName 'Engine\Extras\Redist\en-us\UEPrereqSetup_x64.exe'
+    
+    if (Test-Path $prereqPath) {
+        Write-Host ('Installing prerequisites of Unreal Engine ' + $engine.Name + '...') -ForegroundColor Cyan
+        $p = Start-Process -FilePath $prereqPath -ArgumentList '/quiet','/norestart' -Wait -PassThru
+        
+        if ($p.ExitCode -eq 0) {
+            Write-Host ('Prerequisites for ' + $engine.Name + ' installed successfully.') -ForegroundColor Green
+        }
+        elseif ($p.ExitCode -eq 3010) {
+            throw ('UEPrereqSetup_x64.exe of ' + $engine.Name + 'is causing a container restart')
+        }
+        else {
+            throw ('UEPrereqSetup_x64.exe of ' + $engine.Name + ' failed with exit code ' + $p.ExitCode)
+        }
+    } else {
+        Write-Warning ('Prereq installer not found for ' + $engine.Name + ' at ' + $prereqPath)
+    }
+}
+
 Write-Host "Fetching agent.jar from $env:JENKINS_URL"
 for ($attempt = 1; ; $attempt++) {
     try {

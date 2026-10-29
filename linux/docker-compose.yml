@@ -8,9 +8,6 @@ services:
     restart: unless-stopped
     runtime: sysbox-runc
     init: true
-    # DNS Configuration
-    dns:
-      - 192.168.36.250
     extra_hosts:
       - "host.docker.internal:host-gateway"
     # Environment Variables
@@ -19,3 +16,5 @@ services:
       AGENT_NAME: "${AGENT_NAME:?set AGENT_NAME in .env}"
       AGENT_SECRET: "${AGENT_SECRET:?set AGENT_SECRET in .env}"
       AGENT_WORKDIR: "/home/jenkins"
+    volumes:
+      - /opt/unrealengine:/opt/unrealengine:ro

@@ -1,11 +1,5 @@
 pipeline {
     agent none
-    parameters {
-        string(name: 'UE_GIT_TAGS', defaultValue: '5.8.4-release',
-               description: 'Space-separated EpicGames/UnrealEngine git tags compiled into the Linux and Windows agent images (each one installed under UE_ROOT/<tag>).')
-        string(name: 'WINDOWS_BUILD_MEMORY', defaultValue: '12g',
-               description: 'Memory limit for the Windows agent image build container (docker build -m).')
-    }
     stages {
         stage("Build docker images"){
             parallel {
@@ -17,16 +11,14 @@ pipeline {
                     steps {
                         checkout scm
                         // epic_github_token: Secret text, a GitHub token of an account linked to Epic (EpicGames/UnrealEngine access).
-                        withCredentials([string(credentialsId: 'gh_classic_token', variable: 'GITHUB_TOKEN')]) {
-                            withDockerRegistry(credentialsId: 'docker_server_priv_registry', url: 'https://localhost:5000') {
-                                sh 'docker build --secret id=github_token,env=GITHUB_TOKEN --build-arg UE_GIT_TAGS="$UE_GIT_TAGS" -t jenkins-agent-linux:latest -f linux/Dockerfile linux'
-                                sh "docker tag jenkins-agent-linux:latest localhost:5000/jenkins-agent-linux:latest"
-                                sh "docker push localhost:5000/jenkins-agent-linux:latest"
+                        withDockerRegistry(credentialsId: 'docker_server_priv_registry', url: 'https://localhost:5000') {
+                            sh 'docker build -t jenkins-agent-linux:latest -f linux/Dockerfile linux'
+                            sh "docker tag jenkins-agent-linux:latest localhost:5000/jenkins-agent-linux:latest"
+                            sh "docker push localhost:5000/jenkins-agent-linux:latest"
 
-                                sh "docker build -t jenkins-agent-linux-ndind:latest -f ndind/Dockerfile ndind"
-                                sh "docker tag jenkins-agent-linux-ndind:latest localhost:5000/jenkins-agent-linux-ndind:latest"
-                                sh "docker push localhost:5000/jenkins-agent-linux-ndind:latest"
-                            }
+                            sh "docker build -t jenkins-agent-linux-ndind:latest -f ndind/Dockerfile ndind"
+                            sh "docker tag jenkins-agent-linux-ndind:latest localhost:5000/jenkins-agent-linux-ndind:latest"
+                            sh "docker push localhost:5000/jenkins-agent-linux-ndind:latest"
                         }
                     }
                     post {
@@ -58,17 +50,10 @@ pipeline {
                     }
                     steps {
                         checkout scm
-                        withCredentials([string(credentialsId: 'gh_classic_token', variable: 'GITHUB_TOKEN')]) {
-                            withDockerRegistry(credentialsId: 'docker_server_priv_registry', url: 'https://localhost:5000') {
-                                // The Windows builder has no build secrets, so the token is a build arg. "--build-arg NAME"
-                                // without a value reads it from the environment, which keeps it off the command line. Only
-                                // the local ue-builder stage sees it; the pushed image does not (see windows/Dockerfile).
-                                // ue-builder is tagged first so the engine build cache is not dangling and survives the prune.
-                                bat 'docker build --isolation=process -m %WINDOWS_BUILD_MEMORY% --build-arg GITHUB_TOKEN --build-arg UE_GIT_TAGS --target ue-builder -t jenkins-agent-windows-ue-builder:latest -f windows/Dockerfile windows'
-                                bat 'docker build --isolation=process -m %WINDOWS_BUILD_MEMORY% --build-arg GITHUB_TOKEN --build-arg UE_GIT_TAGS -t jenkins-agent-windows:latest -f windows/Dockerfile windows'
-                                bat "docker tag jenkins-agent-windows:latest localhost:5000/jenkins-agent-windows:latest"
-                                bat "docker push localhost:5000/jenkins-agent-windows:latest"
-                            }
+                        withDockerRegistry(credentialsId: 'docker_server_priv_registry', url: 'https://localhost:5000') {
+                            bat 'docker build --isolation=process -t jenkins-agent-windows:latest -f windows/Dockerfile windows'
+                            bat "docker tag jenkins-agent-windows:latest localhost:5000/jenkins-agent-windows:latest"
+                            bat "docker push localhost:5000/jenkins-agent-windows:latest"
                         }
                     }
                     post {

@@ -4,21 +4,11 @@ services:
     image: registry.ohmvir.dev/jenkins-agent-windows:latest
     container_name: new-laptop-container
     restart: unless-stopped
-
-    # DNS Configuration
-    dns:
-      - 192.168.36.250
-
-    # Environment Variables
+    isolation: process
     environment:
       JENKINS_URL: "https://jenkins.bgfamily.ca"
       AGENT_NAME: "${AGENT_NAME:?set AGENT_NAME in .env}"
       AGENT_SECRET: "${AGENT_SECRET:?set AGENT_SECRET in .env}"
       AGENT_WORKDIR: "C:\\Users\\jenkins" # Double backslashes to escape properly in YAML
-
-    # Resource Constraints (CPUs and Memory)
-    deploy:
-      resources:
-        limits:
-          cpus: '8'
-          memory: 16g
+    volumes:
+      - "C:\\Program Files\\Epic Games\\:C:\\UnrealEngine:ro"
