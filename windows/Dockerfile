@@ -92,7 +92,9 @@ WORKDIR C:\\Users\\jenkins
 # The installer is downloaded and deleted in the same step, so it does not stay in a layer.
 RUN $base = 'https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc'; \
     Invoke-WebRequest -UseBasicParsing -Uri ($base + '/rustup-init.exe') -OutFile C:\TEMP\rustup-init.exe; \
-    $expected = (Invoke-WebRequest -UseBasicParsing -Uri ($base + '/rustup-init.exe.sha256')).Content.Trim().Split()[0]; \
+    $response = Invoke-WebRequest -UseBasicParsing -Uri ($base + '/rustup-init.exe.sha256'); \
+    $shaText = [System.Text.Encoding]::UTF8.GetString($response.Content); \
+    $expected = ($shaText.Trim() -split '\s+')[0]; \
     if ((Get-FileHash C:\TEMP\rustup-init.exe -Algorithm SHA256).Hash -ne $expected) { throw 'rustup-init.exe SHA256 mismatch' }; \
     C:\TEMP\rustup-init.exe -y --default-toolchain stable --profile minimal --quiet; \
     if ($LASTEXITCODE -ne 0) { throw ('rustup-init failed with exit code ' + $LASTEXITCODE) }; \
