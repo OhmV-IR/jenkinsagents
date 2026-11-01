@@ -66,4 +66,9 @@ fi
 echo "[+] Setting ownership of ${TARGET_DIR} to user: ${TARGET_USER}"
 chown -R "${TARGET_USER}:${TARGET_USER}" "${TARGET_DIR}"
 
+# The Jenkins agent containers run as a different UID than the host user, and UAT writes into the engine
+# tree (e.g. ${TARGET_DIR}/Epic), so every user needs read/write/execute.
+echo "[+] Granting read/write/execute on ${TARGET_DIR} to all users"
+chmod -R a+rwx "${TARGET_DIR}"
+
 echo "[✔] Success! Unreal Engine ${UE_VERSION} is installed and ready at ${TARGET_DIR}"

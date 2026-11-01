@@ -1,18 +1,41 @@
 # Agent without docker-in-docker: runs under the normal container runtime and uses the host's docker
-# daemon through its socket. AGENT_NAME, AGENT_SECRET and DOCKER_GID come from .env (copy example.env).
+# daemon through its socket. AGENT_NAME, AGENT_SECRET, DOCKER_GID and the WARP_* values come from .env
+# (copy example.env).
+#
+# The agent shares the network namespace of the warp sidecar, so all of its traffic goes through
+# Cloudflare WARP and can reach the Perforce server's private CIDR route. Consequently network settings
+# (dns, extra_hosts, ports) belong on the warp service, not the agent.
 services:
+  warp:
+    build: ../warp
+    image: registry.ohmvir.dev/warp-sidecar:latest
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    sysctls:
+      net.ipv4.conf.all.src_valid_mark: "1"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      WARP_TEAM_NAME: "${WARP_TEAM_NAME:?set WARP_TEAM_NAME in .env}"
+      WARP_CLIENT_ID: "${WARP_CLIENT_ID:?set WARP_CLIENT_ID in .env}"
+      WARP_CLIENT_SECRET: "${WARP_CLIENT_SECRET:?set WARP_CLIENT_SECRET in .env}"
+    volumes:
+      - warp-data:/var/lib/cloudflare-warp
+
   jenkins-agent:
     image: registry.ohmvir.dev/jenkins-agent-linux-ndind:latest
     restart: unless-stopped
     init: true
+    network_mode: "service:warp"
+    depends_on:
+      warp:
+        condition: service_healthy
     # Group owning the host's /var/run/docker.sock, so the jenkins user can use it.
     group_add:
       - "${DOCKER_GID:?set DOCKER_GID in .env}"
-    # DNS Configuration
-    dns:
-      - 192.168.36.250
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     # Environment Variables
@@ -21,3 +44,6 @@ services:
       AGENT_NAME: "${AGENT_NAME:?set AGENT_NAME in .env}"
       AGENT_SECRET: "${AGENT_SECRET:?set AGENT_SECRET in .env}"
       AGENT_WORKDIR: "/home/jenkins"
+
+volumes:
+  warp-data:

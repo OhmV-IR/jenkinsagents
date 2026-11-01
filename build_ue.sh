@@ -184,4 +184,8 @@ rm -rf UnrealEngine-src LocalBuilds .nuget .config/Epic .local/share/Epic
 echo "=== Successfully built and installed Unreal Engine ${UE_GIT_TAG} at ${dest} ==="
 EOF
 
+# The Jenkins agent containers run as a different UID than the host user, and UAT writes into the engine
+# tree, so every user needs read/write/execute.
+chmod -R a+rwx "${UE_ROOT}/${UE_GIT_TAG}"
+
 echo "[✔] Completed! Engine installed at ${UE_ROOT}/${UE_GIT_TAG}"

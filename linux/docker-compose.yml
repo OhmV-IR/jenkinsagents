@@ -1,15 +1,41 @@
 # Docker-in-docker agent. Needs the Sysbox runtime on the host (https://github.com/nestybox/sysbox),
 # which lets the inner dockerd run without --privileged.
-# AGENT_NAME and AGENT_SECRET come from .env (copy example.env).
+# AGENT_NAME, AGENT_SECRET and the WARP_* values come from .env (copy example.env).
+#
+# The agent shares the network namespace of the warp sidecar, so all of its traffic (and the inner
+# dockerd's) goes through Cloudflare WARP and can reach the Perforce server's private CIDR route.
+# Consequently network settings (dns, extra_hosts, ports) belong on the warp service, not the agent.
 services:
+  warp:
+    build: ../warp
+    image: registry.ohmvir.dev/warp-sidecar:latest
+    container_name: new-laptop-linux-warp
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    sysctls:
+      net.ipv4.conf.all.src_valid_mark: "1"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      WARP_TEAM_NAME: "${WARP_TEAM_NAME:?set WARP_TEAM_NAME in .env}"
+      WARP_CLIENT_ID: "${WARP_CLIENT_ID:?set WARP_CLIENT_ID in .env}"
+      WARP_CLIENT_SECRET: "${WARP_CLIENT_SECRET:?set WARP_CLIENT_SECRET in .env}"
+    volumes:
+      - warp-data:/var/lib/cloudflare-warp
+
   jenkins-agent:
     image: registry.ohmvir.dev/jenkins-agent-linux:latest
     container_name: new-laptop-linux-container
     restart: unless-stopped
     runtime: sysbox-runc
     init: true
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    network_mode: "service:warp"
+    depends_on:
+      warp:
+        condition: service_healthy
     # Environment Variables
     environment:
       JENKINS_URL: "https://jenkins.ohmvir.dev"
@@ -24,3 +50,6 @@ services:
       UE_ROOT: "/opt/unrealengine"
     volumes:
       - /opt/unrealengine:/opt/unrealengine
+
+volumes:
+  warp-data:

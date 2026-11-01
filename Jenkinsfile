@@ -43,6 +43,17 @@ pipeline {
                         }
                     }
                 }
+                stage("Build warp sidecar image"){
+                    agent { label 'docker-linux' }
+                    steps {
+                        checkout scm
+                        withDockerRegistry(credentialsId: 'docker_server_priv_registry', url: 'https://localhost:5000') {
+                            sh "docker build -t warp-sidecar:latest -f warp/Dockerfile warp"
+                            sh "docker tag warp-sidecar:latest localhost:5000/warp-sidecar:latest"
+                            sh "docker push localhost:5000/warp-sidecar:latest"
+                        }
+                    }
+                }
                 stage("Build windows docker image"){
                     agent { label 'docker-windows' }
                     options {
