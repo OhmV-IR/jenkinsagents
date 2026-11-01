@@ -97,6 +97,22 @@ pipeline {
                         }
                     }
                 }
+                stage("Build openproject image"){
+                    agent { label 'docker-linux' }
+                    environment {
+                        // Keep in step with TAG in the openproject docker-compose config.
+                        OP_TAG = '17-slim'
+                    }
+                    steps {
+                        checkout scm
+                        withDockerRegistry(credentialsId: 'docker_server_priv_registry', url: 'https://localhost:5000') {
+                            // --pull so a rebuild picks up upstream 17.x point releases behind the same tag.
+                            sh 'docker build --pull --build-arg TAG=$OP_TAG -t openproject:$OP_TAG -f openproject/Dockerfile openproject'
+                            sh 'docker tag openproject:$OP_TAG localhost:5000/openproject:$OP_TAG'
+                            sh 'docker push localhost:5000/openproject:$OP_TAG'
+                        }
+                    }
+                }
             }
         }
     }

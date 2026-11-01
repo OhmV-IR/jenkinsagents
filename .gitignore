@@ -1,3 +1,4 @@
 *~
 .env
 p4/p4pass.txt
+*.swp
