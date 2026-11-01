@@ -1,0 +1,8 @@
+# Override for hosts where Sysbox cannot run (e.g. WSL2: the WSL init already holds a seccomp
+# user-notification listener, so sysbox-runc fails with "error loading seccomp filter ... device or
+# resource busy"). Falls back to plain runc + --privileged for the inner dockerd.
+#   docker compose -f docker-compose.yml -f docker-compose.wsl.yml up
+services:
+  jenkins-agent:
+    runtime: runc
+    privileged: true
