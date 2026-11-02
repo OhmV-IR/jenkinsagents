@@ -113,6 +113,28 @@ ENV DOTNET_SKIP_FIRST_TIME_EXPERIENCE="true"
 ENV DOTNET_CLI_TELEMETRY_OPTOUT="true"
 ENV DOTNET_NOLOGO="true"
 
+# cloudflared, to reach the Perforce server. It is only reachable through Cloudflare, and Windows containers
+# cannot run the WARP client the Linux agents use (they cannot load its tunnel driver), so the entrypoint
+# runs `cloudflared access tcp` on 127.0.0.1:1666 instead: a userspace relay that carries each connection
+# to the server through Cloudflare Access with a service token. Configured with cloudflared's
+# TUNNEL_SERVICE_HOSTNAME, TUNNEL_SERVICE_TOKEN_ID and TUNNEL_SERVICE_TOKEN_SECRET; without
+# TUNNEL_SERVICE_HOSTNAME the relay is not started.
+ARG CLOUDFLARED_VERSION=2026.10.0
+ARG CLOUDFLARED_SHA256=86AEE4017B26625CEE8484C113558F48EFFA4CD47F7AA05FCF425604E5D2B23C
+RUN New-Item -ItemType Directory -Path C:\cloudflared -Force | Out-Null; \
+    curl.exe -fSL --retry 5 -o C:\cloudflared\cloudflared.exe ('https://github.com/cloudflare/cloudflared/releases/download/' + $env:CLOUDFLARED_VERSION + '/cloudflared-windows-amd64.exe'); \
+    if ($LASTEXITCODE -ne 0) { throw ('cloudflared download failed, curl exit code ' + $LASTEXITCODE) }; \
+    if ((Get-FileHash C:\cloudflared\cloudflared.exe -Algorithm SHA256).Hash -ne $env:CLOUDFLARED_SHA256) { throw 'cloudflared SHA256 mismatch' }
+ENV TUNNEL_SERVICE_URL="127.0.0.1:1666" \
+    NO_AUTOUPDATE="true"
+# Point the Perforce server's name at the relay. Docker ignores extra_hosts/--add-host for Windows
+# containers and jenkins cannot write the hosts file at runtime, but Docker only appends its own entries to
+# the image's hosts file when a container starts, so an entry made here stays.
+ARG P4_HOSTNAME=p4.ohmvir.dev
+USER ContainerAdministrator
+RUN Add-Content C:\Windows\System32\drivers\etc\hosts ([Environment]::NewLine + '127.0.0.1    ' + $env:P4_HOSTNAME)
+USER jenkins
+
 # Outside C:\Users\jenkins (AGENT_WORKDIR), so a volume mounted there cannot hide it.
 COPY jenkins-agent-entrypoint.ps1 C:/ProgramData/Jenkins/jenkins-agent-entrypoint.ps1
 ENTRYPOINT ["powershell", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\ProgramData\\Jenkins\\jenkins-agent-entrypoint.ps1"]

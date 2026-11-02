@@ -1,4 +1,8 @@
-# AGENT_NAME and AGENT_SECRET come from .env (copy example.env).
+# AGENT_NAME, AGENT_SECRET and the P4_ACCESS_* values come from .env (copy example.env).
+#
+# The Perforce server is only reachable through Cloudflare, and Windows containers cannot run the WARP
+# client. The agent's entrypoint runs a cloudflared relay to it on 127.0.0.1:1666, and the image's hosts
+# file points p4.ohmvir.dev there (see the Dockerfile; extra_hosts does nothing for Windows containers).
 services:
   jenkins-agent:
     image: registry.ohmvir.dev/jenkins-agent-windows:latest
@@ -10,5 +14,8 @@ services:
       AGENT_NAME: "${AGENT_NAME:?set AGENT_NAME in .env}"
       AGENT_SECRET: "${AGENT_SECRET:?set AGENT_SECRET in .env}"
       AGENT_WORKDIR: "C:\\Users\\jenkins" # Double backslashes to escape properly in YAML
+      TUNNEL_SERVICE_HOSTNAME: "${P4_ACCESS_HOSTNAME:?set P4_ACCESS_HOSTNAME in .env}"
+      TUNNEL_SERVICE_TOKEN_ID: "${P4_ACCESS_CLIENT_ID:?set P4_ACCESS_CLIENT_ID in .env}"
+      TUNNEL_SERVICE_TOKEN_SECRET: "${P4_ACCESS_CLIENT_SECRET:?set P4_ACCESS_CLIENT_SECRET in .env}"
     volumes:
-      - "C:\\Program Files\\Epic Games\\:C:\\UnrealEngine:ro"
+      - "C:\\Program Files\\Epic Games\\:C:\\UnrealEngine"
