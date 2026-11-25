@@ -113,6 +113,11 @@ ENV DOTNET_SKIP_FIRST_TIME_EXPERIENCE="true"
 ENV DOTNET_CLI_TELEMETRY_OPTOUT="true"
 ENV DOTNET_NOLOGO="true"
 
+ENV BUF_MAJOR=1
+COPY install-buf.ps1 C:/temp/install-buf.ps1
+RUN C:/temp/install-buf.ps1 -BufMajor $env:BUF_MAJOR; Remove-Item C:/temp/install-buf.ps1
+ENV PATH="C:\buf;${PATH}"
+
 # cloudflared, to reach the Perforce server. It is only reachable through Cloudflare, and Windows containers
 # cannot run the WARP client the Linux agents use (they cannot load its tunnel driver), so the entrypoint
 # runs `cloudflared access tcp` on 127.0.0.1:1666 instead: a userspace relay that carries each connection
