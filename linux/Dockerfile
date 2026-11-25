@@ -130,7 +130,9 @@ RUN cargo install protoc-gen-prost
 USER root
 WORKDIR /
 
-RUN apt-get update && apt-get install -y --no-install-recommends clang-tidy clang-tools clang-format codespell cppcheck sqlfluff && \
+# doxygen + graphviz: HTML docs from Unreal Engine C++ sources (graphviz provides `dot` for the class/call/include
+# graphs; recommends are disabled, so it has to be listed explicitly).
+RUN apt-get update && apt-get install -y --no-install-recommends clang-tidy clang-tools clang-format codespell cppcheck sqlfluff doxygen graphviz && \
     rm -rf /var/lib/apt/lists/*
 
 # Install the latest .NET SDK of the DOTNET_CHANNEL major version. Its tarball URL and SHA512 come from
