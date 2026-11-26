@@ -116,7 +116,11 @@ ENV DOTNET_NOLOGO="true"
 ENV BUF_MAJOR=1
 COPY install-buf.ps1 C:/temp/install-buf.ps1
 RUN C:/temp/install-buf.ps1 -BufMajor $env:BUF_MAJOR; Remove-Item C:/temp/install-buf.ps1
-ENV PATH="C:\buf;${PATH}"
+# On the machine Path, like the tools above: not with ENV PATH, as the base image sets no PATH in its config,
+# so ${PATH} expands to nothing and every later RUN loses powershell.
+USER ContainerAdministrator
+RUN [Environment]::SetEnvironmentVariable('Path', 'C:\buf;' + [Environment]::GetEnvironmentVariable('Path', [EnvironmentVariableTarget]::Machine), [EnvironmentVariableTarget]::Machine)
+USER jenkins
 
 # cloudflared, to reach the Perforce server. It is only reachable through Cloudflare, and Windows containers
 # cannot run the WARP client the Linux agents use (they cannot load its tunnel driver), so the entrypoint
