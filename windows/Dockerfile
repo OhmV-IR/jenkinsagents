@@ -122,6 +122,16 @@ USER ContainerAdministrator
 RUN [Environment]::SetEnvironmentVariable('Path', 'C:\buf;' + [Environment]::GetEnvironmentVariable('Path', [EnvironmentVariableTarget]::Machine), [EnvironmentVariableTarget]::Machine)
 USER jenkins
 
+# git-lfs: Git for Windows bundles it; register the lfs filters system-wide so the Jenkins git plugin's
+# `git lfs pull` works for every user, and fail the build if it is missing.
+# Late in the file on purpose, so it does not invalidate the expensive layers above.
+USER ContainerAdministrator
+RUN git lfs install --system --skip-repo; \
+    if ($LASTEXITCODE -ne 0) { throw 'git lfs install failed (is git-lfs missing from the Git install?)' }; \
+    git lfs version; \
+    if ($LASTEXITCODE -ne 0) { throw 'git lfs version failed' }
+USER jenkins
+
 # cloudflared, to reach the Perforce server. It is only reachable through Cloudflare, and Windows containers
 # cannot run the WARP client the Linux agents use (they cannot load its tunnel driver), so the entrypoint
 # runs `cloudflared access tcp` on 127.0.0.1:1666 instead: a userspace relay that carries each connection

@@ -183,7 +183,9 @@ RUN set -eu; \
 
 # git-lfs: the Jenkins git plugin runs `git lfs pull` for repos that use LFS (the package's postinst registers the filters system-wide).
 # It lives in this late layer on purpose, so adding it does not invalidate the expensive layers above.
-RUN apt-get update && apt-get install -y --no-install-recommends util-linux-extra vim ncdu git-lfs && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends util-linux-extra vim ncdu git-lfs && \
+    git lfs install --system --skip-repo && git lfs version && \
+    rm -rf /var/lib/apt/lists/*
 
 ENV JENKINS_URL=""
 ENV AGENT_NAME=""
