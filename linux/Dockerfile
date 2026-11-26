@@ -181,7 +181,9 @@ RUN set -eu; \
     version="$(buf --version)"; \
     case "${version}" in "${BUF_MAJOR}".*) ;; *) echo "ERROR: latest buf is ${version}, expected ${BUF_MAJOR}.x; bump BUF_MAJOR" >&2; exit 1 ;; esac
 
-RUN apt-get update && apt-get install -y --no-install-recommends util-linux-extra vim ncdu && rm -rf /var/lib/apt/lists/*
+# git-lfs: the Jenkins git plugin runs `git lfs pull` for repos that use LFS (the package's postinst registers the filters system-wide).
+# It lives in this late layer on purpose, so adding it does not invalidate the expensive layers above.
+RUN apt-get update && apt-get install -y --no-install-recommends util-linux-extra vim ncdu git-lfs && rm -rf /var/lib/apt/lists/*
 
 ENV JENKINS_URL=""
 ENV AGENT_NAME=""
